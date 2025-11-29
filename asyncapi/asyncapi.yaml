@@ -1,0 +1,1061 @@
+asyncapi: 3.0.0
+info:
+  title: OAGI Planner Socket.IO API
+  version: 2.0.0
+  description: |
+    Real-time Socket.IO API for OAGI Planner Service with native acknowledgement support.
+
+    The service provides bidirectional WebSocket communication for browser automation
+    planning and execution. The server drives the workflow, requesting screenshots
+    and sending actions to execute. All request-response patterns use Socket.IO's
+    native acknowledgement mechanism (no polling needed).
+
+    ## Connection
+
+    Connect to namespace: `/session/{sessionId}`
+
+    Each session gets its own isolated namespace for multiplexing multiple tasks
+    over a single WebSocket connection.
+
+    ## Acknowledgement Mechanism
+
+    The API uses Socket.IO's native acknowledgement feature:
+    - **Server → Client (with ack)**: Server emits event and waits for client's acknowledgement response
+    - **Client → Server (with ack)**: Client requests data and server returns acknowledgement
+    - **Timeout handling**: Server has configurable timeouts (typically 10-30 seconds)
+    - **No polling**: Eliminates need for separate response events
+
+  contact:
+    name: OAGI Team
+  license:
+    name: MIT
+
+servers:
+  development:
+    host: localhost:8000
+    protocol: socketio
+    description: Development server
+
+  production:
+    host: api.example.com
+    protocol: socketio
+    description: Production server
+
+channels:
+  sessionNamespace:
+    address: /session/{sessionId}
+    description: |
+      Dynamic namespace for each planning session.
+      Session ID should be generated client-side using a secure random token.
+
+    parameters:
+      sessionId:
+        description: Unique session identifier (e.g., ses_abc123...)
+        location: $message.payload#/sessionId
+
+    messages:
+      # Client -> Server Events
+      Init:
+        $ref: '#/components/messages/Init'
+      GetStatus:
+        $ref: '#/components/messages/GetStatus'
+
+      # Server -> Client Events (with acknowledgements)
+      RequestScreenshot:
+        $ref: '#/components/messages/RequestScreenshot'
+      RequestTabInfo:
+        $ref: '#/components/messages/RequestTabInfo'
+      Click:
+        $ref: '#/components/messages/Click'
+      Type:
+        $ref: '#/components/messages/Type'
+      Scroll:
+        $ref: '#/components/messages/Scroll'
+      Hotkey:
+        $ref: '#/components/messages/Hotkey'
+      Navigate:
+        $ref: '#/components/messages/Navigate'
+      Wait:
+        $ref: '#/components/messages/Wait'
+      SwitchTabs:
+        $ref: '#/components/messages/SwitchTabs'
+      OpenNewTab:
+        $ref: '#/components/messages/OpenNewTab'
+      CloseTab:
+        $ref: '#/components/messages/CloseTab'
+      GoBack:
+        $ref: '#/components/messages/GoBack'
+      GoForward:
+        $ref: '#/components/messages/GoForward'
+      RefreshPage:
+        $ref: '#/components/messages/RefreshPage'
+      OpenNewWindow:
+        $ref: '#/components/messages/OpenNewWindow'
+
+      # Server -> Client Events (notifications, no acknowledgement)
+      InitComplete:
+        $ref: '#/components/messages/InitComplete'
+      StartSubtask:
+        $ref: '#/components/messages/StartSubtask'
+      FinishSubtask:
+        $ref: '#/components/messages/FinishSubtask'
+      MemoryUpdate:
+        $ref: '#/components/messages/MemoryUpdate'
+      TaskComplete:
+        $ref: '#/components/messages/TaskComplete'
+      Error:
+        $ref: '#/components/messages/Error'
+
+operations:
+  # Client sends init
+  sendInit:
+    action: send
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/Init'
+    description: Initialize a new planning session with user instruction and initial screenshot
+
+  # Client sends get_status (with acknowledgement)
+  sendGetStatus:
+    action: send
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/GetStatus'
+    description: Request current session status (server returns acknowledgement with status data)
+
+  # Server sends request_screenshot (client returns acknowledgement)
+  receiveRequestScreenshot:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/RequestScreenshot'
+    description: Server requests screenshot, client returns acknowledgement with screenshot data
+
+  # Server sends request_tab_info (client returns acknowledgement)
+  receiveRequestTabInfo:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/RequestTabInfo'
+    description: Server requests tab info, client returns acknowledgement with tab data
+
+  # Server sends action events (client returns acknowledgement for each)
+  receiveClick:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/Click'
+    description: Server requests click action, client executes and returns acknowledgement
+
+  receiveType:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/Type'
+    description: Server requests type action, client executes and returns acknowledgement
+
+  receiveScroll:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/Scroll'
+    description: Server requests scroll action, client executes and returns acknowledgement
+
+  receiveHotkey:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/Hotkey'
+    description: Server requests hotkey action, client executes and returns acknowledgement
+
+  receiveNavigate:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/Navigate'
+    description: Server requests navigate action, client executes and returns acknowledgement
+
+  receiveWait:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/Wait'
+    description: Server requests wait action, client executes and returns acknowledgement
+
+  receiveSwitchTabs:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/SwitchTabs'
+    description: Server requests switch_tabs action, client executes and returns acknowledgement
+
+  receiveOpenNewTab:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/OpenNewTab'
+    description: Server requests open_new_tab action, client executes and returns acknowledgement
+
+  receiveCloseTab:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/CloseTab'
+    description: Server requests close_tab action, client executes and returns acknowledgement
+
+  receiveGoBack:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/GoBack'
+    description: Server requests go_back action, client executes and returns acknowledgement
+
+  receiveGoForward:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/GoForward'
+    description: Server requests go_forward action, client executes and returns acknowledgement
+
+  receiveRefreshPage:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/RefreshPage'
+    description: Server requests refresh_page action, client executes and returns acknowledgement
+
+  receiveOpenNewWindow:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/OpenNewWindow'
+    description: Server requests open_new_window action, client executes and returns acknowledgement
+
+  # Server sends init_complete
+  receiveInitComplete:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/InitComplete'
+    description: Receive initialization confirmation with session details and initial memory state
+
+  # Server sends memory_update
+  receiveMemoryUpdate:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/MemoryUpdate'
+    description: Receive updated memory state after each step
+
+  # Server sends start_subtask
+  receiveStartSubtask:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/StartSubtask'
+    description: Notification that a new subtask iteration has started
+
+  # Server sends finish_subtask
+  receiveFinishSubtask:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/FinishSubtask'
+    description: Notification that a subtask iteration has completed with reflection
+
+  # Server sends task_complete
+  receiveTaskComplete:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/TaskComplete'
+    description: Notification that the entire task is complete
+
+  # Server sends error
+  receiveError:
+    action: receive
+    channel:
+      $ref: '#/channels/sessionNamespace'
+    messages:
+      - $ref: '#/channels/sessionNamespace/messages/Error'
+    description: Error notification with message
+
+components:
+  messages:
+    # Client -> Server Messages
+    Init:
+      name: init
+      title: Initialize Session
+      summary: Initialize a new planning session
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/InitEventData'
+      examples:
+        - name: basicInit
+          summary: Basic initialization
+          payload:
+            instruction: Search for 'Python Socket.IO tutorial' on Google
+            screenshot: iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+            actor_model: vision-model-v1
+            max_iterations: 3
+
+    GetStatus:
+      name: get_status
+      title: Get Session Status
+      summary: Request current session status (server returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        description: Empty payload
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/StatusResponse'
+
+    # Server -> Client Messages (with acknowledgements)
+    RequestScreenshot:
+      name: request_screenshot
+      title: Request Screenshot
+      summary: Server requests screenshot (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        description: Empty payload
+      x-ack:
+        payload:
+          type: object
+          required:
+            - screenshot
+          properties:
+            screenshot:
+              type: string
+              format: byte
+              description: Base64 encoded screenshot
+
+    RequestTabInfo:
+      name: request_tab_info
+      title: Request Tab Info
+      summary: Server requests tab information (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        description: Empty payload
+      x-ack:
+        payload:
+          type: object
+          required:
+            - tab_info
+          properties:
+            tab_info:
+              $ref: '#/components/schemas/TabInfo'
+
+    Click:
+      name: click
+      title: Click Action
+      summary: Execute click at coordinates (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+          - x
+          - y
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          x:
+            type: integer
+          y:
+            type: integer
+          click_type:
+            type: string
+            enum: [single, double]
+            default: single
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    Type:
+      name: type
+      title: Type Text Action
+      summary: Type text (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+          - text
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          text:
+            type: string
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    Scroll:
+      name: scroll
+      title: Scroll Action
+      summary: Scroll page (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+          - direction
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          direction:
+            type: string
+            enum: [up, down]
+          amount:
+            type: integer
+            default: 100
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    Hotkey:
+      name: hotkey
+      title: Hotkey Action
+      summary: Press hotkey combination (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+          - combo
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          combo:
+            type: string
+            description: Hotkey combination (e.g., 'ctrl+c', 'enter')
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    Navigate:
+      name: navigate
+      title: Navigate Action
+      summary: Navigate to URL (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+          - url
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          url:
+            type: string
+            format: uri
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    Wait:
+      name: wait
+      title: Wait Action
+      summary: Wait for duration (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+          - duration_ms
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          duration_ms:
+            type: integer
+            description: Duration in milliseconds
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    SwitchTabs:
+      name: switch_tabs
+      title: Switch Tabs Action
+      summary: Switch to tab (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+          - tab_index
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          tab_index:
+            type: integer
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    OpenNewTab:
+      name: open_new_tab
+      title: Open New Tab Action
+      summary: Open new tab (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+          - url
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          url:
+            type: string
+            format: uri
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    CloseTab:
+      name: close_tab
+      title: Close Tab Action
+      summary: Close tab (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          tab_index:
+            type: integer
+            description: Tab index to close (omit for current tab)
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    GoBack:
+      name: go_back
+      title: Go Back Action
+      summary: Navigate back (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    GoForward:
+      name: go_forward
+      title: Go Forward Action
+      summary: Navigate forward (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    RefreshPage:
+      name: refresh_page
+      title: Refresh Page Action
+      summary: Refresh page (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    OpenNewWindow:
+      name: open_new_window
+      title: Open New Window Action
+      summary: Open new window (client returns acknowledgement)
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - action_index
+          - total_actions
+          - url
+        properties:
+          action_index:
+            type: integer
+          total_actions:
+            type: integer
+          url:
+            type: string
+            format: uri
+      x-ack:
+        payload:
+          $ref: '#/components/schemas/ActionAcknowledgement'
+
+    # Server -> Client Messages (notifications, no acknowledgement)
+    InitComplete:
+      name: init_complete
+      title: Initialization Complete
+      summary: Session initialization complete with memory state
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - session_id
+          - session_name
+          - memory
+          - setup_actions
+        properties:
+          session_id:
+            type: string
+            description: Session identifier
+          session_name:
+            type: string
+            description: Short session name (1-6 words)
+          memory:
+            $ref: '#/components/schemas/MemoryState'
+          setup_actions:
+            type: array
+            items:
+              $ref: '#/components/schemas/ActionResponse'
+            description: Initial setup actions to execute (e.g., open_new_window)
+
+    MemoryUpdate:
+      name: memory_update
+      title: Memory Update
+      summary: Updated memory state
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - memory
+        properties:
+          memory:
+            $ref: '#/components/schemas/MemoryState'
+
+    StartSubtask:
+      name: start_subtask
+      title: Start Subtask
+      summary: Notification that a new subtask iteration has started
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - task_name
+          - task_summary
+          - iteration
+        properties:
+          task_name:
+            type: string
+            description: Full subtask instruction
+          task_summary:
+            type: string
+            description: Short subtask summary (1-6 words)
+          iteration:
+            type: integer
+            description: Iteration number
+
+    FinishSubtask:
+      name: finish_subtask
+      title: Finish Subtask
+      summary: Notification that a subtask iteration has completed
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - task_name
+          - task_summary
+          - reflection
+          - iteration
+        properties:
+          task_name:
+            type: string
+            description: Full subtask instruction
+          task_summary:
+            type: string
+            description: Short subtask summary (1-6 words)
+          reflection:
+            type: string
+            description: Strategic reflection on subtask execution
+          iteration:
+            type: integer
+            description: Iteration number
+
+    TaskComplete:
+      name: task_complete
+      title: Task Complete
+      summary: Notification that the entire task is complete
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - memory
+        properties:
+          memory:
+            $ref: '#/components/schemas/MemoryState'
+
+    Error:
+      name: error
+      title: Error
+      summary: Error notification
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - message
+        properties:
+          message:
+            type: string
+            description: Error message
+
+  schemas:
+    # Client -> Server Schemas
+    InitEventData:
+      type: object
+      required:
+        - instruction
+        - screenshot
+      properties:
+        instruction:
+          type: string
+          description: Task instruction from user
+          example: Search for 'Python tutorials' on Google
+        screenshot:
+          type: string
+          format: byte
+          description: Base64 encoded screenshot
+        actor_model:
+          type: string
+          default: vision-model-v1
+          description: OAGI actor model to use
+        max_iterations:
+          type: integer
+          default: 18
+          minimum: 1
+          maximum: 100
+          description: Maximum planning iterations
+
+    # Acknowledgement Schemas
+    ActionAcknowledgement:
+      type: object
+      required:
+        - action_index
+        - action_type
+        - success
+        - result
+      properties:
+        action_index:
+          type: integer
+          description: Index of the action that was executed
+        action_type:
+          type: string
+          description: Type of action executed
+        success:
+          type: boolean
+          description: Whether action executed successfully
+        result:
+          type: string
+          description: Result message
+
+    StatusResponse:
+      type: object
+      required:
+        - session_id
+        - status
+        - current_iteration
+        - is_complete
+      properties:
+        session_id:
+          type: string
+        status:
+          type: string
+          enum: [initialized, running, completed, failed]
+        current_iteration:
+          type: integer
+        current_subtask:
+          type: string
+        is_complete:
+          type: boolean
+        deliverables_summary:
+          type: string
+        todos_summary:
+          type: string
+
+    # Shared Schemas
+    TabInfo:
+      type: object
+      description: Information about all open browser tabs
+      properties:
+        active_tab_id:
+          type: integer
+          description: ID of the tab being automated
+        tabs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TabItem'
+          description: List of all open tabs
+
+    TabItem:
+      type: object
+      required:
+        - id
+        - title
+        - url
+        - window_id
+      properties:
+        id:
+          type: integer
+          description: Chrome tab ID
+        title:
+          type: string
+          description: Tab title
+        url:
+          type: string
+          format: uri
+          description: Tab URL
+        window_id:
+          type: integer
+          description: Window ID containing this tab
+
+    ActionResponse:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: Action type
+          enum:
+            - click
+            - type
+            - scroll
+            - hotkey
+            - wait
+            - finish
+            - open_new_window
+            - open_new_tab
+            - switch_tab
+            - close_tab
+          example: click
+        argument:
+          type: string
+          description: Action argument (coordinates, text, etc.)
+          default: ""
+          example: "100,200"
+
+    MemoryState:
+      type: object
+      description: Simplified memory state for client
+      required:
+        - deliverables
+        - todos
+        - narrative
+        - reflections
+        - key_info
+        - iterations
+      properties:
+        deliverables:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliverableItem'
+          description: List of high-level deliverables
+        todos:
+          type: array
+          items:
+            $ref: '#/components/schemas/TodoItem'
+          description: List of step-by-step tasks
+        narrative:
+          type: string
+          description: Progress narrative
+        reflections:
+          type: string
+          description: Strategic reflections
+        key_info:
+          type: string
+          description: Important discovered information
+        iterations:
+          type: array
+          items:
+            $ref: '#/components/schemas/IterationItem'
+          description: Iteration history with subtasks and actions
+
+    DeliverableItem:
+      type: object
+      required:
+        - index
+        - description
+        - status
+      properties:
+        index:
+          type: integer
+          description: Deliverable index
+        description:
+          type: string
+          description: Deliverable description
+        status:
+          type: string
+          enum:
+            - pending
+            - in_progress
+            - completed
+          description: Deliverable status
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+
+    TodoItem:
+      type: object
+      required:
+        - index
+        - task
+        - status
+      properties:
+        index:
+          type: integer
+          description: Todo index
+        task:
+          type: string
+          description: Todo task description
+        status:
+          type: string
+          enum:
+            - pending
+            - in_progress
+            - completed
+          description: Todo status
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+
+    IterationItem:
+      type: object
+      required:
+        - iteration_id
+        - subtask_instruction
+        - reflection
+        - timestamp
+        - actor_actions
+      properties:
+        iteration_id:
+          type: integer
+          description: Iteration ID
+        subtask_instruction:
+          type: string
+          description: Subtask instruction for this iteration
+        reflection:
+          type: string
+          description: Strategic reflection after iteration
+        timestamp:
+          type: string
+          format: date-time
+          description: Iteration timestamp
+        actor_actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActorAction'
+          description: Actions performed in this iteration
+
+    ActorAction:
+      type: object
+      required:
+        - description
+        - result
+        - success
+        - timestamp
+      properties:
+        description:
+          type: string
+          description: Action description
+        result:
+          type: string
+          description: Action result
+        success:
+          type: boolean
+          description: Whether action succeeded
+        timestamp:
+          type: string
+          format: date-time
+          description: Action timestamp
+        screenshot:
+          type: string
+          format: byte
+          description: Base64 screenshot (optional)
+        thinking:
+          type: string
+          description: AI reasoning for the action
+        step_number:
+          type: integer
+          description: Step number within iteration

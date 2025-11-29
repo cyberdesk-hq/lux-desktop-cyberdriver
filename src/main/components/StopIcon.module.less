@@ -1,0 +1,22 @@
+.stopicon {
+  border-radius: 50%;
+  use {
+    display: none;
+  }
+
+  use.normal {
+    display: inline;
+  }
+  &:not(:active):hover use.hover {
+    display: inline;
+  }
+  &:active use.active {
+    display: inline;
+  }
+  &:hover,
+  &:active {
+    use.normal {
+      display: none;
+    }
+  }
+}

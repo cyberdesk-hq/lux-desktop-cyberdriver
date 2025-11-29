@@ -1,0 +1,28 @@
+.animate {
+  .logo {
+    transform-origin: 50%;
+    animation: logo-pulse 1s infinite alternate;
+  }
+  .circle {
+    transform-origin: 50%;
+    animation: circle-pulse 1s infinite alternate;
+  }
+}
+
+@keyframes logo-pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.25);
+  }
+}
+
+@keyframes circle-pulse {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}

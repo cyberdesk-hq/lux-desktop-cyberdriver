@@ -1,0 +1,27 @@
+.sendicon {
+  border-radius: 8px;
+  use {
+    display: none;
+  }
+
+  &.disabled use.disabled {
+    display: inline;
+  }
+  &:not(.disabled) {
+    use.idle {
+      display: inline;
+    }
+    &:not(:active):hover use.hover {
+      display: inline;
+    }
+    &:active use.active {
+      display: inline;
+    }
+    &:hover,
+    &:active {
+      use.idle {
+        display: none;
+      }
+    }
+  }
+}

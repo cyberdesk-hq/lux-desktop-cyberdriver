@@ -1,0 +1,98 @@
+@import 'tailwindcss';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  font-family: 'Noto Sans Georgian', Arial, sans-serif;
+}
+
+code {
+  font-family:
+    source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+@theme {
+  /* Primary colors (Blues) */
+  --color-primary-dark-2: #1f7098; /* support-p0 */
+  --color-primary-dark-1: #2a95cb; /* support-p0,5 */
+  --color-primary-DEFAULT: #4eacdb; /* primary */
+  --color-primary-light-1: #88c7e7; /* support-p1 */
+  --color-primary-light-2: #bbdff1; /* support-p2 */
+  --color-primary-light-3: #eef7fc; /* support-p3 */
+  /* Secondary color (Purple) */
+  --color-secondary-DEFAULT: #8b72d3;
+  /* Accent B - Neutrals/Grays */
+  --color-accent-b-neg-1: #657d9b; /* support-bneg1 */
+  --color-accent-b: #f5f6f8; /* accent-b */
+  --color-accent-b-0: #939db4; /* support-b0 */
+  --color-accent-b-1: #b7becd; /* support-b1 */
+  --color-accent-b-2: #dbdfe6; /* support-b2 */
+  --color-accent-b-2-35: #dbdfe659; /* support-b2-35 (with opacity) */
+  --color-accent-b-2_5: #d4dbe5; /* support-b2_5 */
+  --color-accent-b-3: #ffffff; /* support-b3 (white) */
+  /* Accent C - Darks/Blacks */
+  --color-accent-c: #09111e; /* accent-c */
+  --color-accent-c-1: #000000; /* support-c1 (pure black) */
+  --color-accent-c-2: #333333; /* support-c2 */
+  --color-accent-c-3: #525252; /* support-c3 */
+  --color-accent-c-4: #68686852; /* support-c4 (with opacity) */
+  /* Indicator/Status colors */
+  --color-success: #00aa2d; /* Indicators/Correct */
+  --color-error: #e8484b; /* Indicators/Incorrect */
+  --color-warning: #ae8116; /* Indicators/Alert */
+
+  /* Typography */
+  --font-outfit: 'Outfit', 'sans-serif';
+  --text-xs-chat: 13px;
+  --text-xs-chat-line-height: normal;
+  --text-sm-chat: 14px;
+  --text-sm-chat-line-height: normal;
+  --text-chat-line-height: 1.4;
+
+  /* Border Radius */
+  --radius-chat: 16px; /* Chat bubbles, containers */
+  --radius-button: 19px; /* Model dropdown button */
+  --radius-icon: 20px; /* Icon buttons */
+
+  /* Shadows */
+  --shadow-floating:
+    0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+  --shadow-button:
+    0px 32px 32px -8px rgba(0, 0, 0, 0.08),
+    0px 0px 32px -8px rgba(0, 0, 0, 0.12), 0px 0px 1px 0px rgba(0, 0, 0, 0.2);
+}
