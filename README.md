@@ -34,6 +34,12 @@ The built app will be at:
 
 - `src-tauri/target/release/bundle/macos/cyberdriver.app`
 
+If macOS blocks the app as damaged (unsigned build), run:
+
+```bash
+xattr -dr com.apple.quarantine "/Users/alanduong/Downloads/Cyberdriver.app"
+```
+
 ## Permissions (macOS)
 
 The app requires:

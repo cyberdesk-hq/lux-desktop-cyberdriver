@@ -431,7 +431,7 @@ impl CyberdriverRuntime {
   pub async fn install_persistent_display(&self) -> Result<()> {
     self.debug_logger.info("RUNTIME", "Installing persistent display driver");
     let settings = self.settings.lock().await.clone();
-    windows::install_persistent_display(&self.app, settings.driver_path).await
+    windows::install_persistent_display(&self.app, settings.driver_path, &self.debug_logger).await
   }
 
 }

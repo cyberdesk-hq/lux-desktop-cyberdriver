@@ -1,3 +1,4 @@
+use crate::cyberdriver::logger::DebugLogger;
 use crate::error::{CyberdriverError, Result};
 use tauri::AppHandle;
 
@@ -24,6 +25,7 @@ use tauri::Manager;
 pub async fn install_persistent_display(
   app: &AppHandle,
   driver_path: Option<String>,
+  logger: &DebugLogger,
 ) -> Result<()> {
   if !cfg!(windows) {
     return Err(CyberdriverError::RuntimeError(
@@ -33,7 +35,20 @@ pub async fn install_persistent_display(
 
   #[cfg(windows)]
   {
+    logger.log(
+      "PERSISTENT_DISPLAY",
+      "Install requested",
+      &[(
+        "driver_path",
+        driver_path.clone().unwrap_or_else(|| "none".into()),
+      )],
+    );
     let driver_dir = resolve_driver_path(app, driver_path)?;
+    logger.log(
+      "PERSISTENT_DISPLAY",
+      "Driver path resolved",
+      &[("driver_dir", driver_dir.display().to_string())],
+    );
     let is_64bit = cfg!(target_pointer_width = "64");
     let installer_name = if is_64bit {
       "deviceinstaller64.exe"
@@ -43,16 +58,35 @@ pub async fn install_persistent_display(
     let installer = driver_dir.join(installer_name);
     let inf_path = driver_dir.join("usbmmidd.inf");
     if !installer.exists() || !inf_path.exists() {
+      logger.log(
+        "PERSISTENT_DISPLAY",
+        "Driver files missing",
+        &[
+          ("installer", installer.display().to_string()),
+          ("inf", inf_path.display().to_string()),
+        ],
+      );
       return Err(CyberdriverError::RuntimeError(
         "Amyuni driver files not found".into(),
       ));
     }
 
+    logger.log(
+      "PERSISTENT_DISPLAY",
+      "Running installer",
+      &[("installer", installer.display().to_string())],
+    );
     run_elevated(
       installer.clone(),
       format!("install \"{}\" usbmmidd", inf_path.display()),
     )?;
+    logger.log(
+      "PERSISTENT_DISPLAY",
+      "Enabling IDD",
+      &[("installer", installer.display().to_string())],
+    );
     run_elevated(installer.clone(), "enableidd 1".to_string())?;
+    logger.info("PERSISTENT_DISPLAY", "Install command completed");
     Ok(())
   }
 
@@ -60,6 +94,7 @@ pub async fn install_persistent_display(
   {
     let _ = app;
     let _ = driver_path;
+    let _ = logger;
     Err(CyberdriverError::RuntimeError(
       "Persistent display is only supported on Windows".into(),
     ))
