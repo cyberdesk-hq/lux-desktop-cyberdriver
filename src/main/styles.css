@@ -22,6 +22,8 @@ body {
   width: 100%;
   height: 100%;
   font-family: 'Noto Sans Georgian', Arial, sans-serif;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 code {

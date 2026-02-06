@@ -1,55 +1,64 @@
-# Lux Desktop
+# Cyberdriver Desktop
 
-## Introduction
-Lux Desktop is an example client of [oagi-python](https://github.com/agiopen-org/oagi-python/tree/main) developed with [Tauri](https://tauri.app/).
+Cyberdriver Desktop is a Tauri-based GUI that runs the Cyberdriver local API and reverse tunnel. It replaces the CLI workflow with a native desktop experience while preserving all Cyberdriver functionality.
 
-## Prerequisites
-To develop or build Lux Desktop locally, [node.js](https://nodejs.org/), [pnpm](https://pnpm.io/) and [Rust](https://rust-lang.org/) toolchain will be needed. You can install them with:
+## Prerequisites (macOS)
+
+Install Node.js, npm, and the Rust toolchain:
+
 ```bash
-# install node.js
+# Node.js (via nvm)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-\. "$HOME/.nvm/nvm.sh"
+. "$HOME/.nvm/nvm.sh"
 nvm install 24
 
-# install pnpm
-npm install -g pnpm
-
-# install rust toolchains
+# Rust (rustup)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
 ```
 
-## Get Started
-Clone this repository:
+## Build & Run (macOS)
+
 ```bash
-git clone https://github.com/agiopen-org/lux-desktop.git
+npm install
+npm run tauri dev
 ```
 
-Install dependencies with pnpm:
+To build a local test release:
+
 ```bash
-cd lux-desktop
-pnpm install
+npm run tauri build
 ```
 
-Launch with dev mode and hot reload:
+The built app will be at:
+
+- `src-tauri/target/release/bundle/macos/cyberdriver.app`
+
+## Permissions (macOS)
+
+The app requires:
+
+- **Screen Recording** permission for screenshots
+- **Accessibility** permission for mouse/keyboard control
+
+You can grant both in **System Settings → Privacy & Security**.
+
+## Usage
+
+1. Open the app.
+2. Enter your Cyberdesk API key.
+3. Click **Start Local API** to run the local server.
+4. Click **Connect Tunnel** to establish the reverse tunnel.
+
+## Local API Quick Test
+
 ```bash
-pnpm tauri dev
+curl "http://127.0.0.1:3000/computer/display/dimensions"
+curl "http://127.0.0.1:3000/computer/display/screenshot?width=1024&height=768" --output screenshot.png
 ```
 
-Build executable binary:
-```bash
-pnpm tauri build
-```
+## Windows Notes
 
-Sign the application (optional but recommended for distribution):
-```bash
-# macOS
-codesign --sign "Your certificate name" src-tauri/target/release/bundle/macos/lux-desktop.app
+- **Persistent Display** requires the Amyuni driver files. Provide a path in the app settings if you have the driver bundle locally.
+- **PowerShell** endpoints are Windows-only.
 
-# Windows
-# Sign the MSI installer with your code signing certificate
-signtool sign /f "path\to\certificate.pfx" /p "password" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 src-tauri\target\release\bundle\msi\lux-desktop_*_x64_en-US.msi
-```
-
-The built application can be found at:
-- **macOS**: `src-tauri/target/release/bundle/macos/lux-desktop.app`
-- **Windows**: `src-tauri/target/release/bundle/msi/`

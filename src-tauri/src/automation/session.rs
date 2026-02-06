@@ -1,5 +1,5 @@
 use super::{state::{Action, AutomationState, AutomationStatus}, types};
-use crate::error::{LuxDesktopError, Result};
+use crate::error::{CyberdriverError, Result};
 use base64::Engine;
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use futures_util::FutureExt;
@@ -13,22 +13,22 @@ use tauri_plugin_store::StoreExt;
 use tokio::{sync::{Mutex, MutexGuard}, time::sleep};
 
 const MODE_THINKER: &str = "thinker";
-const MODEL_ACTOR: &str = "lux-actor-1";
-const MODEL_THINKER: &str = "lux-thinker-1";
+const MODEL_ACTOR: &str = "cyberdriver-actor-1";
+const MODEL_THINKER: &str = "cyberdriver-thinker-1";
 
 fn from_payload<T: serde::de::DeserializeOwned>(payload: Payload) -> Result<T> {
   if let Payload::Text(mut payload) = payload {
     if payload.len() != 1 {
-      Err(LuxDesktopError::InvalidPayload(format!(
+      Err(CyberdriverError::InvalidPayload(format!(
         "Expected 1 payload, got {}",
         payload.len()
       )))
     } else {
       serde_json::from_value::<T>(payload.pop().unwrap())
-        .map_err(|err| LuxDesktopError::InvalidPayload(format!("Error parsing payload: {err:?}")))
+        .map_err(|err| CyberdriverError::InvalidPayload(format!("Error parsing payload: {err:?}")))
     }
   } else {
-    Err(LuxDesktopError::InvalidPayload(format!(
+    Err(CyberdriverError::InvalidPayload(format!(
       "Expected `Payload::Text`, got {payload:?}"
     )))
   }
@@ -65,7 +65,7 @@ impl Session {
 
     let monitor = window
       .current_monitor()?
-      .ok_or_else(LuxDesktopError::error_current_monitor)?;
+      .ok_or_else(CyberdriverError::error_current_monitor)?;
     let scale_factor = monitor.scale_factor();
     let pos = monitor.position().cast::<f64>();
     let (offset_x, offset_y) = (pos.x / scale_factor, pos.y / scale_factor);
@@ -308,7 +308,7 @@ impl Session {
     Ok(())
   }
 
-  async fn on_automation_error(&self, err: &LuxDesktopError) {
+  async fn on_automation_error(&self, err: &CyberdriverError) {
     let mut state = self.state.lock().await;
     if !matches!(state.status, AutomationStatus::Cancelled) {
       state.status = AutomationStatus::Failed;
@@ -359,7 +359,7 @@ impl Session {
     let screenshot: DynamicImage = xcap::Monitor::all()?
       .into_iter()
       .find(|m| (m.x().unwrap() as f64 - self.x).powi(2) + (m.y().unwrap() as f64 - self.y).powi(2) < 1.0)
-      .ok_or_else(LuxDesktopError::error_current_monitor)?
+      .ok_or_else(CyberdriverError::error_current_monitor)?
       .capture_image()?
       .into();
     self.push_history(Action::Screenshot {

@@ -1,5 +1,5 @@
 name: Question
-description: Ask a question about using Lux Desktop or connecting to OAGI server.
+description: Ask a question about using Cyberdriver Desktop or connecting to Cyberdriver API.
 title: "[Question]: "
 labels: ["question"]
 body:
@@ -13,7 +13,7 @@ body:
     id: versions
     attributes:
       label: Version details
-      description: Lux Desktop version and, if applicable, `oagi version`.
+      description: Cyberdriver Desktop version and, if applicable, local API version.
   - type: textarea
     id: context
     attributes:

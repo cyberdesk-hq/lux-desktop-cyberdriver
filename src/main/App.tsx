@@ -1,179 +1,547 @@
-import React, { useEffect, useState } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { AutomationStatus, Mode } from '../common';
-import {
-  AgentLogo,
-  ArrowIcon,
-  Instruction,
-  InstructionEditor,
-  ModeSelector,
-  Options,
-  RunningIcon,
-  Timeline,
-} from './components';
-import { store } from './utils';
-import useAutomation from './useAutomation';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { openPath } from '@tauri-apps/plugin-opener';
+
+type CyberdriverStatus = {
+  local_server_running: boolean;
+  local_server_port?: number | null;
+  tunnel_connected: boolean;
+  keepalive_enabled: boolean;
+  black_screen_recovery: boolean;
+  debug_enabled: boolean;
+  last_error?: string | null;
+  fingerprint: string;
+  version: string;
+};
+
+type CyberdriverSettings = {
+  host: string;
+  port: number;
+  secret: string;
+  target_port: number;
+  keepalive_enabled: boolean;
+  keepalive_threshold_minutes: number;
+  keepalive_click_x: number | null;
+  keepalive_click_y: number | null;
+  black_screen_recovery: boolean;
+  black_screen_check_interval: number;
+  debug: boolean;
+  register_as_keepalive_for: string | null;
+  experimental_space: boolean;
+  driver_path: string | null;
+};
+
+const defaultSettings: CyberdriverSettings = {
+  host: 'api.cyberdesk.io',
+  port: 443,
+  secret: '',
+  target_port: 3000,
+  keepalive_enabled: false,
+  keepalive_threshold_minutes: 3,
+  keepalive_click_x: null,
+  keepalive_click_y: null,
+  black_screen_recovery: false,
+  black_screen_check_interval: 30,
+  debug: true,
+  register_as_keepalive_for: null,
+  experimental_space: false,
+  driver_path: null,
+};
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 const App: React.FC = () => {
-  const { state, agentMessage, loading, startAutomation, stopAutomation } =
-    useAutomation();
-  const { status, history, error } = state ?? {};
-  const isRunning = status === AutomationStatus.Running;
-  const historyAvailable = !!history?.length && !isRunning;
+  const [status, setStatus] = useState<CyberdriverStatus | null>(null);
+  const [settings, setSettings] = useState<CyberdriverSettings>(defaultSettings);
+  const [logDir, setLogDir] = useState<string>('');
+  const [logs, setLogs] = useState<string>('');
+  const [logsError, setLogsError] = useState<string>('');
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [action, setAction] = useState<'join' | 'stop' | null>(null);
+  const hydrated = useRef(false);
+  const saveTimer = useRef<number | null>(null);
+  const logBoxRef = useRef<HTMLPreElement | null>(null);
 
-  const [mode, setMode] = useState(Mode.Actor);
-  const [showHistory, setShowHistory] = useState(false);
-  const [currentInstruction, setCurrentInstruction] = useState('');
-  const instruction = state?.instruction || currentInstruction;
-  const [banner, setBanner] = useState(true);
+  const parsedSettings = useMemo(() => {
+    return {
+      ...settings,
+      keepalive_click_x:
+        settings.keepalive_click_x === null || Number.isNaN(settings.keepalive_click_x)
+          ? null
+          : Number(settings.keepalive_click_x),
+      keepalive_click_y:
+        settings.keepalive_click_y === null || Number.isNaN(settings.keepalive_click_y)
+          ? null
+          : Number(settings.keepalive_click_y),
+      register_as_keepalive_for:
+        settings.register_as_keepalive_for && settings.register_as_keepalive_for.length > 0
+          ? settings.register_as_keepalive_for
+          : null,
+      driver_path: settings.driver_path && settings.driver_path.length > 0 ? settings.driver_path : null,
+    };
+  }, [settings]);
 
-  useEffect(
-    () =>
-      void store.get<Mode>('mode').then(mode => setMode(mode ?? Mode.Actor)),
-    [],
-  );
+  const refreshStatus = useCallback(async () => {
+    try {
+      const next = (await invoke('get_cyberdriver_status')) as CyberdriverStatus;
+      setStatus(next);
+    } catch (err) {
+      setError(String(err));
+    }
+  }, []);
+
   useEffect(() => {
-    getCurrentWindow().setContentProtected(isRunning);
-    setShowHistory(false);
-  }, [isRunning]);
+    void refreshStatus();
+    const timer = window.setInterval(refreshStatus, 2000);
+    return () => window.clearInterval(timer);
+  }, [refreshStatus]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const loaded = (await invoke('get_cyberdriver_settings')) as CyberdriverSettings;
+        setSettings({ ...defaultSettings, ...loaded });
+        const dir = (await invoke('get_cyberdriver_log_dir')) as string;
+        setLogDir(dir);
+        hydrated.current = true;
+        setSaveState('saved');
+      } catch (err) {
+        setError(String(err));
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void (async () => {
+      unlisten = await listen('coordCaptured', event => {
+        const payload = event.payload as { x: number; y: number };
+        setSettings(prev => ({
+          ...prev,
+          keepalive_click_x: payload.x,
+          keepalive_click_y: payload.y,
+        }));
+      });
+    })();
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated.current) {
+      return;
+    }
+    if (saveTimer.current) {
+      window.clearTimeout(saveTimer.current);
+    }
+    setSaveState('saving');
+    saveTimer.current = window.setTimeout(async () => {
+      try {
+        await invoke('update_cyberdriver_settings', { settings: parsedSettings });
+        setSaveState('saved');
+      } catch (err) {
+        setSaveState('error');
+        setError(String(err));
+      }
+    }, 400);
+    return () => {
+      if (saveTimer.current) {
+        window.clearTimeout(saveTimer.current);
+      }
+    };
+  }, [parsedSettings]);
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const next = (await invoke('get_recent_logs', { lines: 500 })) as string;
+        setLogs(next);
+        setLogsError('');
+      } catch (err) {
+        setLogsError(String(err));
+      }
+    };
+    void fetchLogs();
+    const timer = window.setInterval(fetchLogs, 1500);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!autoScroll || !logBoxRef.current) {
+      return;
+    }
+    logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;
+  }, [logs, autoScroll]);
+
+  const updateField = <K extends keyof CyberdriverSettings>(
+    key: K,
+    value: CyberdriverSettings[K],
+  ) => setSettings(prev => ({ ...prev, [key]: value }));
+
+  const saveSettingsNow = useCallback(async () => {
+    if (saveTimer.current) {
+      window.clearTimeout(saveTimer.current);
+    }
+    try {
+      setSaveState('saving');
+      await invoke('update_cyberdriver_settings', { settings: parsedSettings });
+      setSaveState('saved');
+      return true;
+    } catch (err) {
+      setSaveState('error');
+      setError(String(err));
+      return false;
+    }
+  }, [parsedSettings]);
+
+  const handleJoin = async () => {
+    if (!parsedSettings.secret.trim()) {
+      setError('API key is required to join.');
+      return;
+    }
+    setError('');
+    setAction('join');
+    const saved = await saveSettingsNow();
+    if (!saved) {
+      setAction(null);
+      return;
+    }
+    try {
+      await invoke('connect_tunnel');
+      await refreshStatus();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setAction(null);
+    }
+  };
+
+  const handleStop = async () => {
+    setError('');
+    setAction('stop');
+    try {
+      await invoke('disconnect_tunnel');
+      await invoke('stop_local_api');
+      await refreshStatus();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setAction(null);
+    }
+  };
+
+  const copyLogs = async () => {
+    if (!logs) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(logs);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = logs;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+  };
+
+  const connectionLabel = status?.tunnel_connected ? 'Connected' : 'Disconnected';
+  const localLabel = status?.local_server_running ? 'Running' : 'Stopped';
 
   return (
-    <div className="flex flex-col size-full bg-accent-b">
-      {banner && (
-        <a
-          className="w-full flex items-center justify-center text-white bg-[#4EACDB] gap-2.5 py-1"
-          href="https://discord.gg/PVAtX8PzxK"
-          target="_blank"
-        >
-          <div className="flex items-center gap-1">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M19.2701 5.33C17.9401 4.71 16.5001 4.26 15.0001 4C14.9737 4.00038 14.9486 4.01116 14.9301 4.03C14.7501 4.36 14.5401 4.79 14.4001 5.12C12.8091 4.88015 11.1911 4.88015 9.60012 5.12C9.46012 4.78 9.25012 4.36 9.06012 4.03C9.05012 4.01 9.02012 4 8.99012 4C7.49012 4.26 6.06012 4.71 4.72012 5.33C4.71012 5.33 4.70012 5.34 4.69012 5.35C1.97012 9.42 1.22012 13.38 1.59012 17.3C1.59012 17.32 1.60012 17.34 1.62012 17.35C3.42012 18.67 5.15012 19.47 6.86012 20C6.89012 20.01 6.92012 20 6.93012 19.98C7.33012 19.43 7.69012 18.85 8.00012 18.24C8.02012 18.2 8.00012 18.16 7.96012 18.15C7.39012 17.93 6.85012 17.67 6.32012 17.37C6.28012 17.35 6.28012 17.29 6.31012 17.26C6.42012 17.18 6.53012 17.09 6.64012 17.01C6.66012 16.99 6.69012 16.99 6.71012 17C10.1501 18.57 13.8601 18.57 17.2601 17C17.2801 16.99 17.3101 16.99 17.3301 17.01C17.4401 17.1 17.5501 17.18 17.6601 17.27C17.7001 17.3 17.7001 17.36 17.6501 17.38C17.1301 17.69 16.5801 17.94 16.0101 18.16C15.9701 18.17 15.9601 18.22 15.9701 18.25C16.2901 18.86 16.6501 19.44 17.0401 19.99C17.0701 20 17.1001 20.01 17.1301 20C18.8501 19.47 20.5801 18.67 22.3801 17.35C22.4001 17.34 22.4101 17.32 22.4101 17.3C22.8501 12.77 21.6801 8.84 19.3101 5.35C19.3001 5.34 19.2901 5.33 19.2701 5.33ZM8.52012 14.91C7.49012 14.91 6.63012 13.96 6.63012 12.79C6.63012 11.62 7.47012 10.67 8.52012 10.67C9.58012 10.67 10.4201 11.63 10.4101 12.79C10.4101 13.96 9.57012 14.91 8.52012 14.91ZM15.4901 14.91C14.4601 14.91 13.6001 13.96 13.6001 12.79C13.6001 11.62 14.4401 10.67 15.4901 10.67C16.5501 10.67 17.3901 11.63 17.3801 12.79C17.3801 13.96 16.5501 14.91 15.4901 14.91Z" fill="white"/>
-            </svg>
-            <span className="font-medium">
-              We’re on Discord
-            </span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6.83415 3.83124L5 3.83123C4.17158 3.83123 3.5 4.5028 3.5 5.33123L3.5 11C3.5 11.8284 4.17157 12.5 5 12.5L10.6688 12.5C11.4972 12.5 12.1688 11.8284 12.1688 11V9.16587M7.16756 8.83245L12.1688 3.83123M9.50143 3.83121L12.1688 3.83609L12.1688 6.4985" stroke="white" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <span className="hidden md:block">
-            Click here and join to share builds, report bugs, and help shape Lux with us.
-          </span>
-          <span className="absolute right-[20px]" onClick={e => { e.stopPropagation(); setBanner(false) }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5.25 5.25L12 12M12 12L5.25 18.75M12 12L18.75 18.75M12 12L18.75 5.25" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </span>
-        </a>
-      )}
-      <div className="flex flex-1 flex-col p-2">
-        {/* Chat Window */}
-        <div className="flex flex-col size-full overflow-hidden rounded-chat bg-white">
-          {/* Top Bar */}
-          <div className="flex justify-between border-b-1 border-accent-b p-3 pb-2">
-            <ModeSelector
-              mode={mode}
-              onChange={async mode => {
-                setMode(mode);
-                await store.set('mode', mode);
-              }}
-            />
-            <Options />
-          </div>
-
-          {/* Content Area */}
-          <div className="flex flex-auto flex-col justify-between  min-h-0 p-3">
-            {instruction ? (
-              // Chat Bubbles - show when running
-              <div className="flex min-h-36 flex-col overflow-y-scroll p-3">
-                {/* User message */}
-                <div className="flex flex-col items-end gap-2.5 pb-5">
-                  <div className="max-w-md rounded-bl-2xl rounded-tl-2xl rounded-tr-2xl bg-primary-light-3 p-2">
-                    <p className="leading-chat text-primary-dark-2">
-                      <Instruction mode={mode} instruction={instruction} />
-                    </p>
-                  </div>
-                </div>
-
-                {/* Agent progress */}
-                <div className="flex flex-col items-start gap-2.5">
-                  <div className="flex items-center gap-2.5">
-                    {/* Lightning icon */}
-                    <div className="h-7.5 w-7.5 shrink-0">
-                      <AgentLogo
-                        className="text-primary"
-                        completed={status === AutomationStatus.Completed}
-                      />
-                    </div>
-                    <div className="flex items-center rounded-chat bg-accent-b px-3 py-2">
-                      {status === AutomationStatus.Idle ? (
-                        <RunningIcon />
-                      ) : (
-                        <span className="px-2 text-base text-accent-b-0 text-gray-700">
-                          {agentMessage}
-                        </span>
-                      )}
-                      {historyAvailable && (
-                        <button
-                          onClick={() => setShowHistory(s => !s)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full text-accent-c-2 hover:bg-gray-300"
-                        >
-                          <ArrowIcon direction={showHistory ? 'up' : 'down'} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {isRunning && <RunningIcon />}
-                {historyAvailable && (
-                  <Timeline open={showHistory} history={history} />
-                )}
-              </div>
-            ) : (
-              <div />
-            )}
-
-            <div className="flex-initial">
-              {error && (
-                <div className="px-2 my-2 bg-error/6 text-error flex items-center rounded-lg">
-                  <div className="">
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 15.75V16.275M12 9V13.9125M4.875 12.75C4.875 16.685 8.06497 19.875 12 19.875C15.935 19.875 19.125 16.685 19.125 12.75C19.125 8.81497 15.935 5.625 12 5.625C8.06497 5.625 4.875 8.81497 4.875 12.75Z"
-                        stroke="#E8484B"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </div>
-                  <span className="py-2">{error}</span>
-                </div>
-              )}
-              {/* Prompt Box */}
-              <InstructionEditor
-                mode={mode}
-                loading={loading}
-                status={status}
-                startAutomation={async instruction => {
-                  if (mode === Mode.Tasker) {
-                    const taskMode = `tasker:${instruction.slice(1).trim()}`;
-                    setCurrentInstruction(instruction);
-                    await startAutomation('', taskMode as Mode);
-                    return;
-                  }
-                  setCurrentInstruction(instruction);
-                  await startAutomation(instruction, mode);
-                }}
-                stopAutomation={stopAutomation}
-              />
+    <div className="min-h-screen bg-accent-b text-accent-c">
+      <div className="mx-auto max-w-5xl px-8 py-8 space-y-6">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="text-2xl font-semibold">Cyberdriver</div>
+            <div className="text-sm text-accent-b-0">
+              Fingerprint {status?.fingerprint ?? 'Loading...'} · v{status?.version ?? '--'}
             </div>
           </div>
-        </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                status?.tunnel_connected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+              }`}
+            >
+              {connectionLabel}
+            </span>
+            <button
+              className="rounded-lg bg-primary-DEFAULT text-white px-4 py-2 text-sm font-semibold"
+              onClick={handleJoin}
+              disabled={action === 'join'}
+            >
+              {action === 'join' ? 'Joining…' : 'Join'}
+            </button>
+            <button
+              className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
+              onClick={handleStop}
+              disabled={action === 'stop'}
+            >
+              {action === 'stop' ? 'Stopping…' : 'Stop'}
+            </button>
+          </div>
+        </header>
+
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <section className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-accent-b-2 bg-white p-4">
+            <div className="text-xs uppercase text-accent-b-0">Tunnel</div>
+            <div className="text-lg font-semibold">{connectionLabel}</div>
+            <div className="text-sm text-accent-b-0">{settings.host}:{settings.port}</div>
+          </div>
+          <div className="rounded-xl border border-accent-b-2 bg-white p-4">
+            <div className="text-xs uppercase text-accent-b-0">Local API</div>
+            <div className="text-lg font-semibold">{localLabel}</div>
+            <div className="text-sm text-accent-b-0">
+              {status?.local_server_port ? `Port ${status.local_server_port}` : `Port ${settings.target_port}`}
+            </div>
+          </div>
+          <div className="rounded-xl border border-accent-b-2 bg-white p-4">
+            <div className="text-xs uppercase text-accent-b-0">Keepalive</div>
+            <div className="text-lg font-semibold">
+              {status?.keepalive_enabled ? 'Enabled' : 'Disabled'}
+            </div>
+            <div className="text-sm text-accent-b-0">Threshold {settings.keepalive_threshold_minutes} min</div>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-accent-b-2 bg-white p-6 space-y-4">
+          <div>
+            <div className="text-lg font-semibold">Quick Setup</div>
+            <div className="text-sm text-accent-b-0">
+              Enter your API key and click Join. Changes save automatically.
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm">
+              API Key
+              <input
+                className="rounded-lg border border-accent-b-2 px-3 py-2"
+                type="password"
+                value={settings.secret}
+                onChange={e => updateField('secret', e.target.value)}
+                placeholder="Paste your API key"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Host
+              <input
+                className="rounded-lg border border-accent-b-2 px-3 py-2"
+                value={settings.host}
+                onChange={e => updateField('host', e.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Port
+              <input
+                className="rounded-lg border border-accent-b-2 px-3 py-2"
+                type="number"
+                value={settings.port}
+                onChange={e => updateField('port', Number(e.target.value))}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Local API Port
+              <input
+                className="rounded-lg border border-accent-b-2 px-3 py-2"
+                type="number"
+                value={settings.target_port}
+                onChange={e => updateField('target_port', Number(e.target.value))}
+              />
+            </label>
+          </div>
+
+          <div className="text-xs text-accent-b-0">
+            {saveState === 'saving' && 'Saving changes…'}
+            {saveState === 'saved' && 'All changes saved'}
+            {saveState === 'error' && 'Could not save settings'}
+          </div>
+        </section>
+
+        <details className="rounded-xl border border-accent-b-2 bg-white p-6">
+          <summary className="cursor-pointer text-sm font-semibold text-accent-b-neg-1">
+            Advanced Settings
+          </summary>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={settings.keepalive_enabled}
+                onChange={e => updateField('keepalive_enabled', e.target.checked)}
+              />
+              Enable Keepalive
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={settings.black_screen_recovery}
+                onChange={e => updateField('black_screen_recovery', e.target.checked)}
+              />
+              Black Screen Recovery (Windows)
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Keepalive Threshold (minutes)
+              <input
+                className="rounded-lg border border-accent-b-2 px-3 py-2"
+                type="number"
+                value={settings.keepalive_threshold_minutes}
+                onChange={e =>
+                  updateField('keepalive_threshold_minutes', Number(e.target.value))
+                }
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Black Screen Interval (seconds)
+              <input
+                className="rounded-lg border border-accent-b-2 px-3 py-2"
+                type="number"
+                value={settings.black_screen_check_interval}
+                onChange={e =>
+                  updateField('black_screen_check_interval', Number(e.target.value))
+                }
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Keepalive Click X
+              <input
+                className="rounded-lg border border-accent-b-2 px-3 py-2"
+                type="number"
+                value={settings.keepalive_click_x ?? ''}
+                onChange={e =>
+                  updateField(
+                    'keepalive_click_x',
+                    e.target.value === '' ? null : Number(e.target.value),
+                  )
+                }
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Keepalive Click Y
+              <input
+                className="rounded-lg border border-accent-b-2 px-3 py-2"
+                type="number"
+                value={settings.keepalive_click_y ?? ''}
+                onChange={e =>
+                  updateField(
+                    'keepalive_click_y',
+                    e.target.value === '' ? null : Number(e.target.value),
+                  )
+                }
+              />
+            </label>
+            <button
+              className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
+              onClick={() => invoke('open_coord_capture')}
+            >
+              Capture Coordinates
+            </button>
+            <label className="flex flex-col gap-1 text-sm">
+              Amyuni Driver Path (Windows)
+              <input
+                className="rounded-lg border border-accent-b-2 px-3 py-2"
+                value={settings.driver_path ?? ''}
+                onChange={e => updateField('driver_path', e.target.value)}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={settings.experimental_space}
+                onChange={e => updateField('experimental_space', e.target.checked)}
+              />
+              Experimental Space Key (Windows)
+            </label>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
+              onClick={() => invoke('start_local_api')}
+            >
+              Start Local API
+            </button>
+            <button
+              className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
+              onClick={() => invoke('stop_local_api')}
+            >
+              Stop Local API
+            </button>
+            <button
+              className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
+              onClick={() => invoke('install_persistent_display')}
+            >
+              Install Persistent Display (Windows)
+            </button>
+          </div>
+        </details>
+
+        <section className="rounded-xl border border-accent-b-2 bg-white p-6 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-lg font-semibold">Live Logs</div>
+              <div className="text-sm text-accent-b-0">
+                Real-time view of Cyberdriver activity. Copy and paste for debugging.
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={settings.debug}
+                  onChange={e => updateField('debug', e.target.checked)}
+                />
+                Verbose logging
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={autoScroll}
+                  onChange={e => setAutoScroll(e.target.checked)}
+                />
+                Auto-scroll
+              </label>
+              <button
+                className="rounded-md border border-accent-b-2 bg-white px-3 py-2 text-xs font-semibold"
+                onClick={copyLogs}
+              >
+                Copy logs
+              </button>
+              <button
+                className="rounded-md border border-accent-b-2 bg-white px-3 py-2 text-xs font-semibold"
+                onClick={() => logDir && openPath(logDir).catch(err => setLogsError(String(err)))}
+                disabled={!logDir}
+              >
+                Open logs folder
+              </button>
+            </div>
+          </div>
+          {logsError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {logsError}
+            </div>
+          )}
+          <pre
+            ref={logBoxRef}
+            className="h-64 overflow-auto rounded-lg border border-accent-b-2 bg-[#0f172a] text-[#e2e8f0] text-xs leading-5 p-4"
+          >
+            {logs || 'No logs yet. Click Join to start activity.'}
+          </pre>
+        </section>
       </div>
     </div>
   );

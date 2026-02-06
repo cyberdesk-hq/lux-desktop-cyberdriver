@@ -1,7 +1,8 @@
-mod automation;
+mod cyberdriver;
 mod commands;
 mod error;
 
+use tauri::Manager;
 use tokio::sync::Mutex;
 
 fn require_permission() {
@@ -21,23 +22,30 @@ pub fn run() {
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_store::Builder::new().build())
     .plugin(tauri_plugin_opener::init())
-    .manage(Mutex::new(automation::AutomationEngine::default()))
     .invoke_handler(tauri::generate_handler![
-      commands::automation::get_state,
-      commands::automation::start_session,
-      commands::automation::stop_session,
-      commands::settings::set_base_url,
+      commands::cyberdriver::get_cyberdriver_status,
+      commands::cyberdriver::start_local_api,
+      commands::cyberdriver::stop_local_api,
+      commands::cyberdriver::connect_tunnel,
+      commands::cyberdriver::disconnect_tunnel,
+      commands::cyberdriver::update_cyberdriver_settings,
+      commands::cyberdriver::get_cyberdriver_settings,
+      commands::cyberdriver::install_persistent_display,
+      commands::cyberdriver::get_cyberdriver_log_dir,
+      commands::cyberdriver::get_recent_logs,
       commands::window::open_floating_window,
       commands::window::open_image_preview,
+      commands::window::open_coord_capture,
     ])
     .setup(|app| {
+      app.manage(Mutex::new(cyberdriver::CyberdriverRuntime::new(app.handle().clone())?));
       require_permission();
       tauri::WebviewWindowBuilder::new(
         app,
         "main",
         tauri::WebviewUrl::App("windows/main.html".into()),
       )
-      .title("Lux Desktop")
+      .title("Cyberdriver")
       .inner_size(600.0, 500.0)
       .build()?;
       Ok(())

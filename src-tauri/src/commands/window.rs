@@ -55,3 +55,31 @@ pub async fn open_image_preview(app: AppHandle, window: Window, idx: usize) -> R
   }
   Ok(())
 }
+
+#[tauri::command]
+pub async fn open_coord_capture(app: AppHandle, window: Window) -> Result<(), String> {
+  let label = "coord-capture".to_string();
+
+  if let Some(existing_window) = app.get_webview_window(&label) {
+    if let Err(e) = existing_window.set_focus() {
+      println!("Error focusing the coord capture window: {:?}", e);
+    }
+  } else {
+    let monitor = window.current_monitor().unwrap().unwrap();
+    let size = monitor.size();
+    WebviewWindowBuilder::new(
+      &app,
+      &label,
+      tauri::WebviewUrl::App("windows/coord-capture.html".into()),
+    )
+    .title("Capture Coordinates")
+    .transparent(true)
+    .decorations(false)
+    .always_on_top(true)
+    .inner_size(size.width as f64, size.height as f64)
+    .center()
+    .build()
+    .unwrap();
+  }
+  Ok(())
+}

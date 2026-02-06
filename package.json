@@ -1,5 +1,5 @@
 {
-  "name": "lux-desktop",
+  "name": "cyberdriver",
   "private": true,
   "version": "0.1.2",
   "type": "module",
@@ -7,13 +7,14 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev:sck": "bash -lc 'SWIFT_LIB_DIR=\"\"; if [ ! -d /usr/lib/swift ]; then if [ -d /Library/Developer/CommandLineTools/usr/lib/swift-5.5/macosx ]; then SWIFT_LIB_DIR=/Library/Developer/CommandLineTools/usr/lib/swift-5.5/macosx; elif [ -d /Library/Developer/CommandLineTools/usr/lib/swift/macosx ]; then SWIFT_LIB_DIR=/Library/Developer/CommandLineTools/usr/lib/swift/macosx; elif [ -d /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.5/macosx ]; then SWIFT_LIB_DIR=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.5/macosx; elif [ -d /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx ]; then SWIFT_LIB_DIR=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx; fi; if [ -n \"$SWIFT_LIB_DIR\" ]; then export DYLD_LIBRARY_PATH=\"$SWIFT_LIB_DIR:$DYLD_LIBRARY_PATH\"; fi; fi; RUSTUP_TOOLCHAIN=stable tauri dev --features screencapturekit'"
   },
   "dependencies": {
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
     "@draft-js-plugins/editor": "^4.1.4",
     "@draft-js-plugins/mention": "^5.3.0",
-    "@tauri-apps/api": "^2",
+    "@tauri-apps/api": "2.9.1",
     "@tauri-apps/plugin-global-shortcut": "~2.3.1",
     "@tauri-apps/plugin-http": "~2.5.4",
     "@tauri-apps/plugin-opener": "^2",
@@ -26,7 +27,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.17",
-    "@tauri-apps/cli": "^2",
+    "@tauri-apps/cli": "2.9.1",
     "@types/draft-js": "^0.11.18",
     "@types/node": "^24.9.2",
     "@types/react": "^19.2.2",

@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with Lux Desktop or the local OAGI server connection.
+description: Report a problem with Cyberdriver Desktop or the local Cyberdriver API.
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -10,14 +10,14 @@ body:
       options:
         - label: I have searched existing issues.
           required: true
-        - label: I am using the latest released Lux Desktop build.
+        - label: I am using the latest released Cyberdriver Desktop build.
           required: true
         - label: I included relevant logs/error messages.
           required: false
   - type: input
     id: desktop_version
     attributes:
-      label: Lux Desktop version
+      label: Cyberdriver Desktop version
       description: Find it in Help → About (or the release tag you installed).
       placeholder: e.g. 0.2.x
     validations:
@@ -25,8 +25,8 @@ body:
   - type: input
     id: server_version
     attributes:
-      label: OAGI server / package version
-      description: Output of `oagi version` or the package version driving the server.
+      label: Cyberdriver API version
+      description: Version of the local Cyberdriver API (if known).
   - type: dropdown
     id: os
     attributes:
@@ -52,7 +52,7 @@ body:
       description: Include launch commands, UI actions, and any environment specifics.
       placeholder: |
         1. Start server with ...
-        2. Open Lux Desktop and ...
+        2. Open Cyberdriver Desktop and ...
     validations:
       required: true
   - type: textarea

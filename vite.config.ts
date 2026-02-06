@@ -36,6 +36,7 @@ export default defineConfig({
         main: path.resolve(__dirname, 'windows/main.html'),
         floating: path.resolve(__dirname, 'windows/floating.html'),
         image: path.resolve(__dirname, 'windows/image-preview.html'),
+        coordCapture: path.resolve(__dirname, 'windows/coord-capture.html'),
       },
     },
   },
