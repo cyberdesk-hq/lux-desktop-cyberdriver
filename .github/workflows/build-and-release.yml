@@ -27,13 +27,14 @@ jobs:
     needs: get-version
     steps:
       - uses: actions/checkout@v4
-      - name: Delete existing release/tag (if exists)
-        continue-on-error: true
+      - name: Fail if release already exists
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete "v${{ needs.get-version.outputs.version }}" --yes || true
-          git push origin ":refs/tags/v${{ needs.get-version.outputs.version }}" || true
+          if gh release view "v${{ needs.get-version.outputs.version }}" >/dev/null 2>&1; then
+            echo "Release v${{ needs.get-version.outputs.version }} already exists. Bump the version and push again."
+            exit 1
+          fi
       - name: Create GitHub release
         id: create_release
         uses: actions/create-release@v1
