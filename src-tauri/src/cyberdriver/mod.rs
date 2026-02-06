@@ -2,6 +2,7 @@ pub mod api;
 mod black_screen;
 mod config;
 mod diagnostics;
+pub mod headless;
 mod input;
 mod keepalive;
 mod logger;
@@ -10,9 +11,11 @@ mod update;
 mod windows;
 
 use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::fs;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Runtime};
+use tauri_plugin_http::reqwest;
 use tauri_plugin_store::StoreExt;
 use tauri::async_runtime::JoinHandle;
 use tokio::sync::Mutex;
@@ -75,6 +78,30 @@ impl Default for CyberdriverSettings {
 }
 
 impl CyberdriverSettings {
+  pub fn settings_file_path() -> std::path::PathBuf {
+    config::get_config_dir().join("settings.json")
+  }
+
+  pub fn from_file() -> Result<Self> {
+    let path = Self::settings_file_path();
+    if let Ok(content) = fs::read_to_string(&path) {
+      if let Ok(settings) = serde_json::from_str::<CyberdriverSettings>(&content) {
+        return Ok(settings);
+      }
+    }
+    let settings = Self::default();
+    let _ = settings.write_to_file();
+    Ok(settings)
+  }
+
+  pub fn write_to_file(&self) -> Result<()> {
+    let path = Self::settings_file_path();
+    fs::create_dir_all(config::get_config_dir())?;
+    let payload = serde_json::to_vec_pretty(self)?;
+    fs::write(path, payload)?;
+    Ok(())
+  }
+
   pub fn from_store(app: &AppHandle) -> Result<Self> {
     let store = app.store("settings.json")?;
     let mut settings = Self::default();
@@ -96,6 +123,7 @@ impl CyberdriverSettings {
       read_string_opt(&store, "cyberdriver_register_as_keepalive_for");
     settings.experimental_space = read_bool(&store, "cyberdriver_experimental_space", settings.experimental_space);
     settings.driver_path = read_string_opt(&store, "cyberdriver_driver_path");
+    let _ = settings.write_to_file();
     Ok(settings)
   }
 
@@ -124,6 +152,7 @@ impl CyberdriverSettings {
     );
     store.set("cyberdriver_experimental_space", self.experimental_space);
     store.set("cyberdriver_driver_path", self.driver_path.clone());
+    let _ = self.write_to_file();
     Ok(())
   }
 }
@@ -133,6 +162,7 @@ pub struct CyberdriverStatus {
   pub local_server_running: bool,
   pub local_server_port: Option<u16>,
   pub tunnel_connected: bool,
+  pub service_running: bool,
   pub keepalive_enabled: bool,
   pub black_screen_recovery: bool,
   pub debug_enabled: bool,
@@ -198,10 +228,12 @@ impl CyberdriverRuntime {
   pub async fn get_status(&self) -> CyberdriverStatus {
     let settings = self.settings.lock().await.clone();
     let connection_info = self.connection_info.lock().await.clone();
+    let service_running = is_service_running().await;
     CyberdriverStatus {
       local_server_running: self.server.is_some(),
       local_server_port: self.server.as_ref().map(|s| s.port),
       tunnel_connected: self.tunnel.is_some() && connection_info.connected,
+      service_running,
       keepalive_enabled: settings.keepalive_enabled,
       black_screen_recovery: settings.black_screen_recovery,
       debug_enabled: settings.debug,
@@ -263,11 +295,17 @@ impl CyberdriverRuntime {
       return Ok(server.port);
     }
     let settings = self.settings.lock().await.clone();
+    if is_service_running().await {
+      self
+        .debug_logger
+        .log("RUNTIME", "Service already running local API", &[("port", settings.target_port.to_string())]);
+      return Ok(settings.target_port);
+    }
     let port = config::find_available_port("127.0.0.1", settings.target_port)
       .ok_or_else(|| CyberdriverError::RuntimeError("No available port found".into()))?;
 
     let state = ApiState::new(
-      self.app.clone(),
+      Some(self.app.clone()),
       self.config.clone(),
       self.keepalive.clone(),
       self.settings.clone(),
@@ -309,6 +347,12 @@ impl CyberdriverRuntime {
   }
 
   pub async fn stop_local_server(&mut self) -> Result<()> {
+    if is_service_running().await {
+      self
+        .debug_logger
+        .info("RUNTIME", "Service running; skipping local API stop");
+      return Ok(());
+    }
     if let Some(server) = self.server.take() {
       server.stop.cancel();
       let _ = tokio::time::timeout(Duration::from_secs(2), server.task).await;
@@ -322,6 +366,12 @@ impl CyberdriverRuntime {
       return Ok(());
     }
     let settings = self.settings.lock().await.clone();
+    if is_service_running().await {
+      self
+        .debug_logger
+        .info("RUNTIME", "Service running; skipping tunnel connect");
+      return Ok(());
+    }
     if settings.secret.trim().is_empty() {
       return Err(CyberdriverError::RuntimeError("Missing API key".into()));
     }
@@ -371,6 +421,12 @@ impl CyberdriverRuntime {
   }
 
   pub async fn disconnect_tunnel(&mut self) -> Result<()> {
+    if is_service_running().await {
+      self
+        .debug_logger
+        .info("RUNTIME", "Service running; skipping tunnel disconnect");
+      return Ok(());
+    }
     if let Some(tunnel) = self.tunnel.take() {
       tunnel.stop.cancel();
       let _ = tokio::time::timeout(Duration::from_secs(2), tunnel.task).await;
@@ -434,6 +490,19 @@ impl CyberdriverRuntime {
     windows::install_persistent_display(&self.app, settings.driver_path, &self.debug_logger).await
   }
 
+}
+
+async fn is_service_running() -> bool {
+  if !cfg!(windows) {
+    return false;
+  }
+  let client = reqwest::Client::new();
+  let response = client
+    .get("http://127.0.0.1:3415/status")
+    .timeout(Duration::from_millis(300))
+    .send()
+    .await;
+  response.is_ok()
 }
 
 pub fn log_dir_path() -> std::path::PathBuf {

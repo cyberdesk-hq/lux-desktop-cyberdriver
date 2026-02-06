@@ -68,3 +68,12 @@ curl "http://127.0.0.1:3000/computer/display/screenshot?width=1024&height=768" -
 - **Persistent Display** requires the Amyuni driver files. Provide a path in the app settings if you have the driver bundle locally.
 - **PowerShell** endpoints are Windows-only.
 
+## Windows Service (MSI)
+
+The MSI installer registers **Cyberdriver Service** to run in the background at boot, while the UI auto-launches at user login.
+
+To verify the service is running:
+
+- Open **Services** (`services.msc`) and look for **Cyberdriver Service**.
+
+

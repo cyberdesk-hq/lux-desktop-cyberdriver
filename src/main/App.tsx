@@ -7,6 +7,7 @@ type CyberdriverStatus = {
   local_server_running: boolean;
   local_server_port?: number | null;
   tunnel_connected: boolean;
+  service_running: boolean;
   keepalive_enabled: boolean;
   black_screen_recovery: boolean;
   debug_enabled: boolean;
@@ -269,6 +270,7 @@ const App: React.FC = () => {
 
   const connectionLabel = status?.tunnel_connected ? 'Connected' : 'Disconnected';
   const localLabel = status?.local_server_running ? 'Running' : 'Stopped';
+  const serviceLabel = status?.service_running ? 'Service: Running' : 'Service: Off';
 
   return (
     <div className="min-h-screen bg-accent-b text-accent-c">
@@ -287,6 +289,13 @@ const App: React.FC = () => {
               }`}
             >
               {connectionLabel}
+            </span>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                status?.service_running ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+              }`}
+            >
+              {serviceLabel}
             </span>
             <button
               className="rounded-lg bg-primary-DEFAULT text-white px-4 py-2 text-sm font-semibold"
@@ -488,18 +497,22 @@ const App: React.FC = () => {
             </label>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
-              onClick={() => invoke('start_local_api')}
-            >
-              Start Local API
-            </button>
-            <button
-              className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
-              onClick={() => invoke('stop_local_api')}
-            >
-              Stop Local API
-            </button>
+            {!status?.service_running && (
+              <>
+                <button
+                  className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
+                  onClick={() => invoke('start_local_api')}
+                >
+                  Start Local API
+                </button>
+                <button
+                  className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
+                  onClick={() => invoke('stop_local_api')}
+                >
+                  Stop Local API
+                </button>
+              </>
+            )}
             <button
               className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
               onClick={() => invoke('install_persistent_display')}

@@ -43,7 +43,17 @@ pub async fn install_persistent_display(
         driver_path.clone().unwrap_or_else(|| "none".into()),
       )],
     );
-    let driver_dir = resolve_driver_path(app, driver_path)?;
+    let driver_dir = match resolve_driver_path(app, driver_path) {
+      Ok(path) => path,
+      Err(err) => {
+        logger.log(
+          "PERSISTENT_DISPLAY",
+          "Driver path resolve failed",
+          &[("error", err.to_string())],
+        );
+        return Err(err);
+      }
+    };
     logger.log(
       "PERSISTENT_DISPLAY",
       "Driver path resolved",
@@ -86,6 +96,12 @@ pub async fn install_persistent_display(
       &[("installer", installer.display().to_string())],
     );
     run_elevated(installer.clone(), "enableidd 1".to_string())?;
+    let detected = detect_usb_mobile_monitor();
+    logger.log(
+      "PERSISTENT_DISPLAY",
+      "Device detection",
+      &[("usb_mobile_monitor", detected.to_string())],
+    );
     logger.info("PERSISTENT_DISPLAY", "Install command completed");
     Ok(())
   }
@@ -102,26 +118,57 @@ pub async fn install_persistent_display(
 }
 
 #[cfg(windows)]
-fn resolve_driver_path(app: &AppHandle, driver_path: Option<String>) -> Result<PathBuf> {
-  if let Some(path) = driver_path {
-    let candidate = PathBuf::from(path);
-    if candidate.exists() {
-      return Ok(candidate);
+fn detect_usb_mobile_monitor() -> bool {
+  let output = std::process::Command::new("powershell")
+    .args([
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      "Get-PnpDevice -Class Monitor | Where-Object { $_.FriendlyName -like '*USB Mobile Monitor*' } | Select-Object -First 1 -ExpandProperty FriendlyName",
+    ])
+    .output()
+    .ok();
+  match output {
+    Some(output) if output.status.success() => {
+      let text = String::from_utf8_lossy(&output.stdout);
+      !text.trim().is_empty()
     }
+    _ => false,
+  }
+}
+
+#[cfg(windows)]
+fn resolve_driver_path(app: &AppHandle, driver_path: Option<String>) -> Result<PathBuf> {
+  let mut candidates = Vec::new();
+  if let Some(path) = driver_path {
+    candidates.push(PathBuf::from(path));
   }
   if let Ok(resource_dir) = app.path().resource_dir() {
-    let candidate = resource_dir.join("amyuni_driver");
+    candidates.push(resource_dir.join("amyuni_driver"));
+    candidates.push(resource_dir.join("resources").join("amyuni_driver"));
+    candidates.push(
+      resource_dir
+        .join("src-tauri")
+        .join("resources")
+        .join("amyuni_driver"),
+    );
+  }
+  for candidate in &candidates {
     if candidate.exists() {
-      return Ok(candidate);
-    }
-    let nested = resource_dir.join("src-tauri").join("resources").join("amyuni_driver");
-    if nested.exists() {
-      return Ok(nested);
+      return Ok(candidate.clone());
     }
   }
-  Err(CyberdriverError::RuntimeError(
-    "Amyuni driver resources not found".into(),
-  ))
+  let list = candidates
+    .iter()
+    .map(|p| p.display().to_string())
+    .collect::<Vec<_>>()
+    .join("; ");
+  Err(CyberdriverError::RuntimeError(format!(
+    "Amyuni driver resources not found. Tried: {list}"
+  )))
 }
 
 #[cfg(windows)]

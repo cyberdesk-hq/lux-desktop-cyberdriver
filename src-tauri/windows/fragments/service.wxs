@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="CyberdriverServiceComponent" Guid="*">
+        <File
+          Id="CyberdriverServiceExe"
+          Source="..\\binaries\\cyberdriver-service-x86_64-pc-windows-msvc.exe"
+          KeyPath="yes"
+        />
+        <ServiceInstall
+          Id="CyberdriverServiceInstall"
+          Name="CyberdriverService"
+          DisplayName="Cyberdriver Service"
+          Description="Cyberdriver background service"
+          Start="auto"
+          Type="ownProcess"
+          ErrorControl="normal"
+        />
+        <ServiceControl
+          Id="CyberdriverServiceControl"
+          Name="CyberdriverService"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes"
+        />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

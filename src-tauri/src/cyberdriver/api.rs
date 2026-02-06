@@ -29,12 +29,12 @@ pub struct ApiState {
   pub debug_logger: DebugLogger,
   pub connection_info: std::sync::Arc<Mutex<ConnectionInfo>>,
   pub enigo: std::sync::Arc<Mutex<Enigo>>,
-  pub app_handle: AppHandle,
+  pub app_handle: Option<AppHandle>,
 }
 
 impl ApiState {
   pub fn new(
-    app_handle: AppHandle,
+    app_handle: Option<AppHandle>,
     config: Config,
     keepalive: std::sync::Arc<KeepAliveManager>,
     settings: std::sync::Arc<Mutex<CyberdriverSettings>>,
@@ -286,7 +286,7 @@ async fn post_keyboard_key(
     &[("sequence", payload.text.clone())],
   );
   let settings = state.settings.lock().await.clone();
-  input::execute_xdo_sequence(&state.app_handle, &state.enigo, &payload.text, settings.experimental_space)
+  input::execute_xdo_sequence(state.app_handle.as_ref(), &state.enigo, &payload.text, settings.experimental_space)
     .await
     .map_err(|err| ApiError::internal(&err.to_string()))?;
   Ok(Json(serde_json::json!({})))
@@ -308,7 +308,7 @@ async fn post_copy_to_clipboard(
     }
   }).await;
 
-  input::execute_xdo_sequence(&state.app_handle, &state.enigo, "ctrl+c", settings.experimental_space)
+  input::execute_xdo_sequence(state.app_handle.as_ref(), &state.enigo, "ctrl+c", settings.experimental_space)
     .await
     .map_err(|err| ApiError::internal(&err.to_string()))?;
 
@@ -763,11 +763,12 @@ async fn post_update(
   let response = update::handle_update(payload, &state.connection_info, &state.config.version)
     .await
     .map_err(|err| ApiError::internal(&err.to_string()))?;
-  let app = state.app_handle.clone();
-  tauri::async_runtime::spawn(async move {
-    tokio::time::sleep(Duration::from_secs(2)).await;
-    app.exit(0);
-  });
+  if let Some(app) = state.app_handle.clone() {
+    tauri::async_runtime::spawn(async move {
+      tokio::time::sleep(Duration::from_secs(2)).await;
+      app.exit(0);
+    });
+  }
   Ok(Json(serde_json::to_value(response).unwrap_or_else(|_| serde_json::json!({}))))
 }
 

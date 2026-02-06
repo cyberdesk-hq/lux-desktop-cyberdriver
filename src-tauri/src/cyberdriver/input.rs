@@ -100,7 +100,7 @@ pub async fn type_text(
 }
 
 pub async fn execute_xdo_sequence(
-  app: &AppHandle,
+  app: Option<&AppHandle>,
   enigo: &std::sync::Arc<Mutex<Enigo>>,
   sequence: &str,
   experimental_space: bool,
@@ -116,7 +116,9 @@ pub async fn execute_xdo_sequence(
     return Ok(());
   }
   if cfg!(target_os = "macos") {
-    let app = app.clone();
+    let app = app
+      .cloned()
+      .ok_or_else(|| CyberdriverError::RuntimeError("Missing app handle".into()))?;
     let enigo = std::sync::Arc::clone(enigo);
     let sequence = sequence.to_string();
     let experimental_space = experimental_space;
