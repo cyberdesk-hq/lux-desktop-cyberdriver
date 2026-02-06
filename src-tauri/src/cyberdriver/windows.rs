@@ -6,7 +6,7 @@ use windows::core::w;
 #[cfg(windows)]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
   GetKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY,
-  KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, VK_CAPITAL, VK_SPACE,
+  KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, VIRTUAL_KEY, VK_CAPITAL, VK_SPACE,
 };
 
 #[cfg(windows)]
@@ -17,6 +17,9 @@ use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
 #[cfg(windows)]
 use std::path::PathBuf;
+
+#[cfg(windows)]
+use tauri::Manager;
 
 pub async fn install_persistent_display(
   app: &AppHandle,
@@ -126,7 +129,7 @@ pub fn send_scancode(scan_code: u16, key_up: bool) {
     r#type: INPUT_KEYBOARD,
     Anonymous: INPUT_0 {
       ki: KEYBDINPUT {
-        wVk: 0,
+        wVk: VIRTUAL_KEY(0),
         wScan: sc,
         dwFlags: flags,
         time: 0,
@@ -141,7 +144,7 @@ pub fn send_scancode(scan_code: u16, key_up: bool) {
 
 #[cfg(windows)]
 pub fn send_vk_space(key_up: bool) {
-  let mut flags = 0;
+  let mut flags = KEYBD_EVENT_FLAGS(0);
   if key_up {
     flags |= KEYEVENTF_KEYUP;
   }
@@ -149,7 +152,7 @@ pub fn send_vk_space(key_up: bool) {
     r#type: INPUT_KEYBOARD,
     Anonymous: INPUT_0 {
       ki: KEYBDINPUT {
-        wVk: VK_SPACE.0 as u16,
+        wVk: VK_SPACE,
         wScan: 0,
         dwFlags: flags,
         time: 0,

@@ -25,14 +25,16 @@ pub fn collect() -> serde_json::Value {
   {
     use windows::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
     use windows::Win32::System::Threading::GetCurrentProcess;
-    use windows::Win32::UI::WindowsAndMessaging::GetGuiResources;
-    use windows::Win32::UI::WindowsAndMessaging::{GR_GDIOBJECTS, GR_USEROBJECTS};
     unsafe {
       let handle = GetCurrentProcess();
-      diagnostics["gdi_objects"] = json!(GetGuiResources(handle, GR_GDIOBJECTS));
-      diagnostics["user_objects"] = json!(GetGuiResources(handle, GR_USEROBJECTS));
       let mut mem = PROCESS_MEMORY_COUNTERS::default();
-      if GetProcessMemoryInfo(handle, &mut mem, std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32).as_bool() {
+      if GetProcessMemoryInfo(
+        handle,
+        &mut mem,
+        std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+      )
+      .is_ok()
+      {
         diagnostics["working_set_bytes"] = json!(mem.WorkingSetSize);
       }
     }
