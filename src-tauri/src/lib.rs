@@ -30,6 +30,7 @@ pub fn run() {
       commands::cyberdriver::disconnect_tunnel,
       commands::cyberdriver::update_cyberdriver_settings,
       commands::cyberdriver::get_cyberdriver_settings,
+      commands::cyberdriver::clear_cyberdriver_config,
       commands::cyberdriver::install_persistent_display,
       commands::cyberdriver::get_cyberdriver_log_dir,
       commands::cyberdriver::get_recent_logs,

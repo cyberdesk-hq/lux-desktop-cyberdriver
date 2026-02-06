@@ -11,7 +11,7 @@ use crate::error::{CyberdriverError, Result};
 const CONFIG_DIR: &str = ".cyberdriver";
 const CONFIG_FILE: &str = "config.json";
 const PID_FILE: &str = "cyberdriver.pid.json";
-const VERSION: &str = "0.0.39";
+const VERSION: &str = "0.0.40";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -96,6 +96,14 @@ pub fn get_config() -> Result<Config> {
   };
   fs::write(&config_path, serde_json::to_vec_pretty(&config.to_dict())?)?;
   Ok(config)
+}
+
+pub fn clear_config_file() -> Result<()> {
+  let config_path = get_config_dir().join(CONFIG_FILE);
+  if config_path.exists() {
+    fs::remove_file(&config_path).map_err(|err| CyberdriverError::RuntimeError(err.to_string()))?;
+  }
+  Ok(())
 }
 
 pub fn get_pid_file_path() -> PathBuf {

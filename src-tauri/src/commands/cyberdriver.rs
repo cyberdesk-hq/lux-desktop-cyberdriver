@@ -79,6 +79,17 @@ pub async fn get_cyberdriver_settings(app: AppHandle) -> Result<CyberdriverSetti
 }
 
 #[tauri::command]
+pub async fn clear_cyberdriver_config(app: AppHandle) -> Result<(), String> {
+  app
+    .state::<Mutex<CyberdriverRuntime>>()
+    .lock()
+    .await
+    .clear_config()
+    .await
+    .map_err(|err| format!("{err:?}"))
+}
+
+#[tauri::command]
 pub async fn install_persistent_display(app: AppHandle) -> Result<(), String> {
   app
     .state::<Mutex<CyberdriverRuntime>>()

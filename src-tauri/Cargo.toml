@@ -1,6 +1,6 @@
 [package]
 name = "cyberdriver"
-version = "0.1.2"
+version = "0.0.40"
 description = "Cyberdriver Desktop"
 authors = ["Cyberdriver"]
 edition = "2024"

@@ -137,7 +137,7 @@ pub struct CyberdriverStatus {
   pub black_screen_recovery: bool,
   pub debug_enabled: bool,
   pub last_error: Option<String>,
-  pub fingerprint: String,
+  pub machine_uuid: String,
   pub version: String,
 }
 
@@ -206,9 +206,20 @@ impl CyberdriverRuntime {
       black_screen_recovery: settings.black_screen_recovery,
       debug_enabled: settings.debug,
       last_error: self.last_error.clone(),
-      fingerprint: self.config.fingerprint.clone(),
+      machine_uuid: self.config.fingerprint.clone(),
       version: self.config.version.clone(),
     }
+  }
+
+  pub async fn clear_config(&mut self) -> Result<()> {
+    config::clear_config_file()?;
+    self.config = config::get_config()?;
+    self.debug_logger.log(
+      "RUNTIME",
+      "Config cleared",
+      &[("version", self.config.version.clone())],
+    );
+    Ok(())
   }
 
   pub async fn update_settings(&mut self, settings: CyberdriverSettings) -> Result<()> {

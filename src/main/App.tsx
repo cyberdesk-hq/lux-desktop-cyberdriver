@@ -11,7 +11,7 @@ type CyberdriverStatus = {
   black_screen_recovery: boolean;
   debug_enabled: boolean;
   last_error?: string | null;
-  fingerprint: string;
+  machine_uuid: string;
   version: string;
 };
 
@@ -236,6 +236,19 @@ const App: React.FC = () => {
     }
   };
 
+  const handleClearConfig = async () => {
+    if (!window.confirm('Clear config file and generate a new machine UUID?')) {
+      return;
+    }
+    setError('');
+    try {
+      await invoke('clear_cyberdriver_config');
+      await refreshStatus();
+    } catch (err) {
+      setError(String(err));
+    }
+  };
+
   const copyLogs = async () => {
     if (!logs) {
       return;
@@ -264,7 +277,7 @@ const App: React.FC = () => {
           <div>
             <div className="text-2xl font-semibold">Cyberdriver</div>
             <div className="text-sm text-accent-b-0">
-              Fingerprint {status?.fingerprint ?? 'Loading...'} · v{status?.version ?? '--'}
+              Machine UUID {status?.machine_uuid ?? 'Loading...'} · v{status?.version ?? '--'}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -450,6 +463,12 @@ const App: React.FC = () => {
               onClick={() => invoke('open_coord_capture')}
             >
               Capture Coordinates
+            </button>
+            <button
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700"
+              onClick={handleClearConfig}
+            >
+              Clear Config File
             </button>
             <label className="flex flex-col gap-1 text-sm">
               Amyuni Driver Path (Windows)
