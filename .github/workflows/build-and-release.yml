@@ -27,6 +27,13 @@ jobs:
     needs: get-version
     steps:
       - uses: actions/checkout@v4
+      - name: Delete existing release/tag (if exists)
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "v${{ needs.get-version.outputs.version }}" --yes || true
+          git push origin ":refs/tags/v${{ needs.get-version.outputs.version }}" || true
       - name: Create GitHub release
         id: create_release
         uses: actions/create-release@v1
