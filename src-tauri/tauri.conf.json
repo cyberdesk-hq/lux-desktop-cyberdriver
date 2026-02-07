@@ -21,8 +21,7 @@
     "targets": "all",
     "windows": {
       "wix": {
-        "fragmentPaths": ["./windows/fragments/service.wxs"],
-        "componentRefs": ["CyberdriverServiceComponent"]
+        "template": "./windows/main.wxs"
       }
     },
     "resources": ["resources/amyuni_driver"],
