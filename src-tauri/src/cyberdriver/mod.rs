@@ -28,7 +28,6 @@ use self::{
   api::ApiState,
   config::{Config, ConnectionInfo, RuntimePidInfo},
   keepalive::KeepAliveManager,
-  logger::DebugLogger,
   tunnel::TunnelClient,
 };
 
