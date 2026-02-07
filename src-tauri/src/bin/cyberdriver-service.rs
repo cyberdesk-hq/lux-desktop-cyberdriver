@@ -12,7 +12,7 @@ use std::{
 };
 
 #[cfg(windows)]
-use cyberdriver_lib::cyberdriver::{headless::HeadlessRuntime, logger::DebugLogger};
+use cyberdriver_lib::cyberdriver::{headless::HeadlessRuntime, DebugLogger};
 
 #[cfg(windows)]
 use windows_service::{

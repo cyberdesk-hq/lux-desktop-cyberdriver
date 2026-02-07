@@ -6,6 +6,7 @@ pub mod headless;
 mod input;
 mod keepalive;
 mod logger;
+pub use logger::DebugLogger;
 mod tunnel;
 mod update;
 mod windows;
