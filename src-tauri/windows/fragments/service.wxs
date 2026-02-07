@@ -5,7 +5,7 @@
       <Component Id="CyberdriverServiceComponent" Guid="*">
         <File
           Id="CyberdriverServiceExe"
-          Source="..\\binaries\\cyberdriver-service-x86_64-pc-windows-msvc.exe"
+          Source="..\\..\\binaries\\cyberdriver-service-x86_64-pc-windows-msvc.exe"
           KeyPath="yes"
         />
         <ServiceInstall
