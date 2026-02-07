@@ -4,6 +4,15 @@ version = "0.0.40"
 description = "Cyberdriver Desktop"
 authors = ["Cyberdriver"]
 edition = "2024"
+default-run = "cyberdriver"
+
+[[bin]]
+name = "cyberdriver"
+path = "src/main.rs"
+
+[[bin]]
+name = "cyberdriver-service"
+path = "src/bin/cyberdriver-service.rs"
 
 [lib]
 name = "cyberdriver_lib"
