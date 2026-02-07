@@ -150,6 +150,7 @@ impl ScaleMode {
 }
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 enum ScreenshotBackend {
   XCap,
   ScreenCaptureKit,

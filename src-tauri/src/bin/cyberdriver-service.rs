@@ -132,7 +132,7 @@ fn run_service() -> Result<(), windows_service::Error> {
 fn service_worker(running: Arc<AtomicBool>, logger: DebugLogger) {
   logger.info("SERVICE", "Service worker started");
   start_control_server(running.clone(), logger.clone());
-  let mut runtime = match HeadlessRuntime::new() {
+  let mut runtime: HeadlessRuntime = match HeadlessRuntime::new() {
     Ok(runtime) => runtime,
     Err(err) => {
       logger.log("SERVICE", "Failed to initialize runtime", &[("error", err.to_string())]);

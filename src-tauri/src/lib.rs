@@ -1,4 +1,4 @@
-mod cyberdriver;
+pub mod cyberdriver;
 mod commands;
 mod error;
 

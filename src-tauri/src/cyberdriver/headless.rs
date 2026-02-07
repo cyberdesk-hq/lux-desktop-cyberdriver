@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::{fs, net::SocketAddr, sync::Arc, time::{Duration, SystemTime}};
 
 use tokio::sync::Mutex;
