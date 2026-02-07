@@ -152,7 +152,12 @@ jobs:
             MSI_PATH=$(ls src-tauri/target/release/bundle/msi/*.msi | head -1)
             MSI_NAME="cyberdriver-desktop-test-windows.msi"
             cp "$MSI_PATH" "$MSI_NAME"
-            echo "asset_path=$EXE_NAME"$'\n'"$MSI_NAME" >> "$GITHUB_OUTPUT"
+            {
+              echo "asset_path<<EOF"
+              echo "$EXE_NAME"
+              echo "$MSI_NAME"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload test asset
