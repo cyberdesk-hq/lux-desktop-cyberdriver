@@ -59,7 +59,7 @@ jobs:
           - os: macos-15-intel
             target: x86_64-apple-darwin
             arch: x64
-          - os: windows-latest
+          - os: windows-2022
             arch: x64
     runs-on: ${{ matrix.os }}
     permissions:
@@ -108,7 +108,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          dism.exe /online /Enable-Feature /FeatureName:VBScript /All /NoRestart
+          $feature = Get-WindowsOptionalFeature -Online -FeatureName VBScript -ErrorAction SilentlyContinue
+          if ($feature) {
+            if ($feature.State -ne "Enabled") {
+              Enable-WindowsOptionalFeature -Online -FeatureName VBScript -NoRestart
+            }
+            Write-Host "VBScript optional feature enabled"
+            exit 0
+          }
+          $cap = Get-WindowsCapability -Online | Where-Object { $_.Name -like "VBSCRIPT*" } | Select-Object -First 1
+          if ($cap) {
+            if ($cap.State -ne "Installed") {
+              Add-WindowsCapability -Online -Name $cap.Name
+            }
+            Write-Host "VBScript capability installed"
+            exit 0
+          }
+          Write-Error "VBScript feature/capability not available on this runner. Use windows-2022."
       - name: Build Tauri app (Windows)
         if: runner.os == 'Windows'
         run: pnpm tauri build --bundles nsis,msi
