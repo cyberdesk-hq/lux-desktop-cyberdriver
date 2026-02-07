@@ -104,6 +104,11 @@ jobs:
         if: runner.os == 'macOS'
         run: pnpm tauri build --target ${{ matrix.target }} --bundles app --features screencapturekit
 
+      - name: Enable VBScript for MSI (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          dism.exe /online /Enable-Feature /FeatureName:VBScript /All /NoRestart
       - name: Build Tauri app (Windows)
         if: runner.os == 'Windows'
         run: pnpm tauri build --bundles nsis,msi
