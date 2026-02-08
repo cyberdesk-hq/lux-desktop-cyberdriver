@@ -6,13 +6,15 @@ use std::{
   sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
+    Mutex,
   },
   thread,
   time::Duration,
 };
 
 #[cfg(windows)]
-use cyberdriver_lib::cyberdriver::{headless::HeadlessRuntime, DebugLogger};
+use cyberdriver_lib::cyberdriver::{headless::{HeadlessRuntime, ServiceStatusSnapshot}, DebugLogger};
+use serde_json::json;
 
 #[cfg(windows)]
 use windows_service::{
@@ -131,7 +133,8 @@ fn run_service() -> Result<(), windows_service::Error> {
 #[cfg(windows)]
 fn service_worker(running: Arc<AtomicBool>, logger: DebugLogger) {
   logger.info("SERVICE", "Service worker started");
-  start_control_server(running.clone(), logger.clone());
+  let status = Arc::new(Mutex::new(ServiceStatusSnapshot::default()));
+  start_control_server(running.clone(), status.clone(), logger.clone());
   let mut runtime: HeadlessRuntime = match HeadlessRuntime::new() {
     Ok(runtime) => runtime,
     Err(err) => {
@@ -142,15 +145,29 @@ fn service_worker(running: Arc<AtomicBool>, logger: DebugLogger) {
   if let Err(err) = tauri::async_runtime::block_on(runtime.start()) {
     logger.log("SERVICE", "Failed to start runtime", &[("error", err.to_string())]);
   }
+  update_status_snapshot(&status, &runtime);
   while running.load(Ordering::SeqCst) {
     let _ = tauri::async_runtime::block_on(runtime.refresh_settings_if_changed());
+    update_status_snapshot(&status, &runtime);
     thread::sleep(Duration::from_secs(5));
   }
   let _ = tauri::async_runtime::block_on(runtime.stop());
 }
 
 #[cfg(windows)]
-fn start_control_server(running: Arc<AtomicBool>, logger: DebugLogger) {
+fn update_status_snapshot(status: &Arc<Mutex<ServiceStatusSnapshot>>, runtime: &HeadlessRuntime) {
+  let snapshot = tauri::async_runtime::block_on(runtime.status_snapshot());
+  if let Ok(mut guard) = status.lock() {
+    *guard = snapshot;
+  }
+}
+
+#[cfg(windows)]
+fn start_control_server(
+  running: Arc<AtomicBool>,
+  status: Arc<Mutex<ServiceStatusSnapshot>>,
+  logger: DebugLogger,
+) {
   thread::spawn(move || {
     let listener = match TcpListener::bind(("127.0.0.1", CONTROL_PORT)) {
       Ok(listener) => listener,
@@ -189,11 +206,19 @@ fn start_control_server(running: Arc<AtomicBool>, logger: DebugLogger) {
         running.store(false, Ordering::SeqCst);
         logger.info("SERVICE", "Stop requested via control server");
       }
-      let body = if running.load(Ordering::SeqCst) {
-        "{\"running\":true}"
-      } else {
-        "{\"running\":false}"
-      };
+      let snapshot = status
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default();
+      let body = json!({
+        "running": running.load(Ordering::SeqCst),
+        "connected": snapshot.connected,
+        "local_port": snapshot.local_port,
+        "cloud_host": snapshot.cloud_host,
+        "cloud_port": snapshot.cloud_port,
+        "last_error": snapshot.last_error,
+      })
+      .to_string();
       let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
         body.len(),

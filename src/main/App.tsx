@@ -282,35 +282,37 @@ const App: React.FC = () => {
               Machine UUID {status?.machine_uuid ?? 'Loading...'} · v{status?.version ?? '--'}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                status?.tunnel_connected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-              }`}
-            >
-              {connectionLabel}
-            </span>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                status?.service_running ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-              }`}
-            >
-              {serviceLabel}
-            </span>
-            <button
-              className="rounded-lg bg-primary-DEFAULT text-white px-4 py-2 text-sm font-semibold"
-              onClick={handleJoin}
-              disabled={action === 'join'}
-            >
-              {action === 'join' ? 'Joining…' : 'Join'}
-            </button>
-            <button
-              className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
-              onClick={handleStop}
-              disabled={action === 'stop'}
-            >
-              {action === 'stop' ? 'Stopping…' : 'Stop'}
-            </button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  status?.tunnel_connected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {connectionLabel}
+              </span>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  status?.service_running ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {serviceLabel}
+              </span>
+              <button
+                className="rounded-lg bg-primary-DEFAULT text-white px-4 py-2 text-sm font-semibold"
+                onClick={handleJoin}
+                disabled={action === 'join'}
+              >
+                {action === 'join' ? 'Joining…' : 'Join'}
+              </button>
+              <button
+                className="rounded-lg border border-accent-b-2 bg-white px-4 py-2 text-sm font-semibold"
+                onClick={handleStop}
+                disabled={action === 'stop'}
+              >
+                {action === 'stop' ? 'Stopping…' : 'Stop'}
+              </button>
+            </div>
           </div>
         </header>
 

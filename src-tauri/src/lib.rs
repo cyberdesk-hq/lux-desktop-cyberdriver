@@ -3,6 +3,7 @@ mod commands;
 mod error;
 
 use tauri::Manager;
+#[cfg(target_os = "macos")]
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tokio::sync::Mutex;
 
@@ -19,11 +20,15 @@ fn require_permission() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
+  let mut builder = tauri::Builder::default()
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_store::Builder::new().build())
-    .plugin(tauri_plugin_opener::init())
-    .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+    .plugin(tauri_plugin_opener::init());
+  #[cfg(target_os = "macos")]
+  {
+    builder = builder.plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None));
+  }
+  builder
     .invoke_handler(tauri::generate_handler![
       commands::cyberdriver::get_cyberdriver_status,
       commands::cyberdriver::start_local_api,
@@ -43,6 +48,7 @@ pub fn run() {
     .setup(|app| {
       app.manage(Mutex::new(cyberdriver::CyberdriverRuntime::new(app.handle().clone())?));
       require_permission();
+      #[cfg(target_os = "macos")]
       let _ = app.autolaunch().enable();
       tauri::WebviewWindowBuilder::new(
         app,

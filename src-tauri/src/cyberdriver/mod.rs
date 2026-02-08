@@ -171,6 +171,17 @@ pub struct CyberdriverStatus {
   pub version: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Default)]
+#[serde(default)]
+struct ServiceStatusResponse {
+  running: bool,
+  connected: bool,
+  local_port: Option<u16>,
+  cloud_host: Option<String>,
+  cloud_port: Option<u16>,
+  last_error: Option<String>,
+}
+
 struct ServerHandle {
   port: u16,
   stop: CancellationToken,
@@ -228,16 +239,31 @@ impl CyberdriverRuntime {
   pub async fn get_status(&self) -> CyberdriverStatus {
     let settings = self.settings.lock().await.clone();
     let connection_info = self.connection_info.lock().await.clone();
-    let service_running = is_service_running().await;
+    let service_status = fetch_service_status().await;
+    let service_running = service_status.as_ref().map(|status| status.running).unwrap_or(false);
+    let mut local_server_running = self.server.is_some();
+    let mut local_server_port = self.server.as_ref().map(|s| s.port);
+    let mut tunnel_connected = self.tunnel.is_some() && connection_info.connected;
+    let mut last_error = self.last_error.clone();
+    if let Some(status) = &service_status {
+      if status.running {
+        local_server_running = status.local_port.is_some();
+        local_server_port = status.local_port;
+        tunnel_connected = status.connected;
+        if status.last_error.is_some() {
+          last_error = status.last_error.clone();
+        }
+      }
+    }
     CyberdriverStatus {
-      local_server_running: self.server.is_some(),
-      local_server_port: self.server.as_ref().map(|s| s.port),
-      tunnel_connected: self.tunnel.is_some() && connection_info.connected,
+      local_server_running,
+      local_server_port,
+      tunnel_connected,
       service_running,
       keepalive_enabled: settings.keepalive_enabled,
       black_screen_recovery: settings.black_screen_recovery,
       debug_enabled: settings.debug,
-      last_error: self.last_error.clone(),
+      last_error,
       machine_uuid: self.config.fingerprint.clone(),
       version: self.config.version.clone(),
     }
@@ -295,6 +321,20 @@ impl CyberdriverRuntime {
       return Ok(server.port);
     }
     let settings = self.settings.lock().await.clone();
+    if let Some(status) = fetch_service_status().await {
+      if status.running {
+        if let Some(port) = status.local_port {
+          self
+            .debug_logger
+            .log("RUNTIME", "Service already running local API", &[("port", port.to_string())]);
+          return Ok(port);
+        }
+        self
+          .debug_logger
+          .log("RUNTIME", "Service already running local API", &[("port", settings.target_port.to_string())]);
+        return Ok(settings.target_port);
+      }
+    }
     if is_service_running().await {
       self
         .debug_logger
@@ -369,7 +409,7 @@ impl CyberdriverRuntime {
     if is_service_running().await {
       self
         .debug_logger
-        .info("RUNTIME", "Service running; skipping tunnel connect");
+        .info("RUNTIME", "Service running; tunnel handled by service");
       return Ok(());
     }
     if settings.secret.trim().is_empty() {
@@ -424,7 +464,7 @@ impl CyberdriverRuntime {
     if is_service_running().await {
       self
         .debug_logger
-        .info("RUNTIME", "Service running; skipping tunnel disconnect");
+        .info("RUNTIME", "Service running; tunnel handled by service");
       return Ok(());
     }
     if let Some(tunnel) = self.tunnel.take() {
@@ -493,16 +533,24 @@ impl CyberdriverRuntime {
 }
 
 async fn is_service_running() -> bool {
+  fetch_service_status()
+    .await
+    .map(|status| status.running)
+    .unwrap_or(false)
+}
+
+async fn fetch_service_status() -> Option<ServiceStatusResponse> {
   if !cfg!(windows) {
-    return false;
+    return None;
   }
   let client = reqwest::Client::new();
   let response = client
     .get("http://127.0.0.1:3415/status")
     .timeout(Duration::from_millis(300))
     .send()
-    .await;
-  response.is_ok()
+    .await
+    .ok()?;
+  response.json::<ServiceStatusResponse>().await.ok()
 }
 
 pub fn log_dir_path() -> std::path::PathBuf {

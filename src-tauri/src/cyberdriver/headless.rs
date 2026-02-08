@@ -2,6 +2,8 @@
 use std::{fs, net::SocketAddr, sync::Arc, time::{Duration, SystemTime}};
 
 use tokio::sync::Mutex;
+
+use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 
 use crate::error::{CyberdriverError, Result};
@@ -44,6 +46,15 @@ pub struct HeadlessRuntime {
   settings_mtime: Option<SystemTime>,
 }
 
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ServiceStatusSnapshot {
+  pub connected: bool,
+  pub local_port: Option<u16>,
+  pub cloud_host: Option<String>,
+  pub cloud_port: Option<u16>,
+  pub last_error: Option<String>,
+}
+
 impl HeadlessRuntime {
   pub fn new() -> Result<Self> {
     let config = config::get_config()?;
@@ -74,8 +85,7 @@ impl HeadlessRuntime {
     if settings.secret.trim().is_empty() {
       self
         .debug_logger
-        .log("SERVICE", "Missing API key; not connecting tunnel", &[]);
-      self.start_local_server().await?;
+        .log("SERVICE", "Missing API key; waiting for settings", &[]);
       return Ok(());
     }
     self.connect_tunnel().await
@@ -307,6 +317,17 @@ impl HeadlessRuntime {
     }
 
     Ok(())
+  }
+
+  pub async fn status_snapshot(&self) -> ServiceStatusSnapshot {
+    let connection = self.connection_info.lock().await.clone();
+    ServiceStatusSnapshot {
+      connected: self.tunnel.is_some() && connection.connected,
+      local_port: self.server.as_ref().map(|s| s.port),
+      cloud_host: connection.host,
+      cloud_port: connection.port,
+      last_error: connection.last_error,
+    }
   }
 }
 

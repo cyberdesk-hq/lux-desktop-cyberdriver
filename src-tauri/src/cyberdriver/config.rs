@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{CyberdriverError, Result};
 
 const CONFIG_DIR: &str = ".cyberdriver";
+const WINDOWS_CONFIG_DIR: &str = "Cyberdriver";
 const CONFIG_FILE: &str = "config.json";
 const PID_FILE: &str = "cyberdriver.pid.json";
 const VERSION: &str = "0.0.40";
@@ -50,17 +51,75 @@ pub struct RuntimePidInfo {
 }
 
 pub fn get_config_dir() -> PathBuf {
-  let base = if cfg!(windows) {
-    std::env::var("LOCALAPPDATA").ok().unwrap_or_else(|| {
-      std::env::var("USERPROFILE").unwrap_or_else(|_| ".".into())
-    })
-  } else {
-    std::env::var("XDG_CONFIG_HOME").ok().unwrap_or_else(|| {
-      let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-      format!("{home}/.config")
-    })
-  };
+  if cfg!(windows) {
+    let system_dir = windows_system_config_dir();
+    let user_dir = windows_user_config_dir();
+    if !system_dir.exists() || !system_dir.join(CONFIG_FILE).exists() {
+      migrate_windows_config_dir(&user_dir, &system_dir);
+    }
+    return system_dir;
+  }
+  let base = std::env::var("XDG_CONFIG_HOME").ok().unwrap_or_else(|| {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    format!("{home}/.config")
+  });
   PathBuf::from(base).join(CONFIG_DIR)
+}
+
+#[cfg(target_os = "windows")]
+fn windows_system_config_dir() -> PathBuf {
+  let base = std::env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".into());
+  PathBuf::from(base).join(WINDOWS_CONFIG_DIR)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn windows_system_config_dir() -> PathBuf {
+  PathBuf::from(".")
+}
+
+#[cfg(target_os = "windows")]
+fn windows_user_config_dir() -> PathBuf {
+  let base = std::env::var("LOCALAPPDATA").ok().unwrap_or_else(|| {
+    std::env::var("USERPROFILE").unwrap_or_else(|_| ".".into())
+  });
+  PathBuf::from(base).join(CONFIG_DIR)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn windows_user_config_dir() -> PathBuf {
+  PathBuf::from(".")
+}
+
+#[cfg(target_os = "windows")]
+fn migrate_windows_config_dir(user_dir: &PathBuf, system_dir: &PathBuf) {
+  if !user_dir.exists() {
+    return;
+  }
+  let _ = fs::create_dir_all(system_dir);
+  copy_if_missing(user_dir.join(CONFIG_FILE), system_dir.join(CONFIG_FILE));
+  copy_if_missing(user_dir.join("settings.json"), system_dir.join("settings.json"));
+  let src_logs = user_dir.join("logs");
+  let dst_logs = system_dir.join("logs");
+  if src_logs.exists() && !dst_logs.exists() {
+    let _ = fs::create_dir_all(&dst_logs);
+    if let Ok(entries) = fs::read_dir(src_logs) {
+      for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() {
+          if let Some(name) = path.file_name() {
+            let _ = fs::copy(&path, dst_logs.join(name));
+          }
+        }
+      }
+    }
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn copy_if_missing(src: PathBuf, dst: PathBuf) {
+  if src.exists() && !dst.exists() {
+    let _ = fs::copy(src, dst);
+  }
 }
 
 pub fn get_config() -> Result<Config> {

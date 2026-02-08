@@ -11,7 +11,7 @@
     <?error Unsupported value of sys.BUILDARCH=$(sys.BUILDARCH)?>
 <?endif?>
 
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
     <Product
             Id="*"
             Name="{{product_name}}"
@@ -119,6 +119,15 @@
             </Directory>
             <Directory Id="ProgramMenuFolder">
                 <Directory Id="ApplicationProgramsFolder" Name="{{product_name}}"/>
+            </Directory>
+            <Directory Id="ProgramDataFolder">
+                <Directory Id="CyberdriverDataDir" Name="Cyberdriver">
+                    <Component Id="CyberdriverDataDirComponent" Guid="*">
+                        <CreateFolder>
+                            <util:PermissionEx User="Users" GenericAll="yes" />
+                        </CreateFolder>
+                    </Component>
+                </Directory>
             </Directory>
         </Directory>
 
@@ -243,6 +252,7 @@
                 Absent="disallow">
 
             <ComponentRef Id="RegistryEntries"/>
+            <ComponentRef Id="CyberdriverDataDirComponent"/>
 
             {{#each resource_file_ids as |resource_file_id| ~}}
                 <ComponentRef Id="{{ resource_file_id }}"/>
