@@ -115,6 +115,9 @@ fn migrate_windows_config_dir(user_dir: &PathBuf, system_dir: &PathBuf) {
   }
 }
 
+#[cfg(not(target_os = "windows"))]
+fn migrate_windows_config_dir(_user_dir: &PathBuf, _system_dir: &PathBuf) {}
+
 #[cfg(target_os = "windows")]
 fn copy_if_missing(src: PathBuf, dst: PathBuf) {
   if src.exists() && !dst.exists() {

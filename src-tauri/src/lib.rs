@@ -20,14 +20,12 @@ fn require_permission() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  let mut builder = tauri::Builder::default()
+  let builder = tauri::Builder::default()
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_store::Builder::new().build())
     .plugin(tauri_plugin_opener::init());
   #[cfg(target_os = "macos")]
-  {
-    builder = builder.plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None));
-  }
+  let builder = builder.plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None));
   builder
     .invoke_handler(tauri::generate_handler![
       commands::cyberdriver::get_cyberdriver_status,

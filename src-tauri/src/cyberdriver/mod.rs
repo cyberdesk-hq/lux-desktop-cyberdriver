@@ -550,7 +550,8 @@ async fn fetch_service_status() -> Option<ServiceStatusResponse> {
     .send()
     .await
     .ok()?;
-  response.json::<ServiceStatusResponse>().await.ok()
+  let body = response.text().await.ok()?;
+  serde_json::from_str::<ServiceStatusResponse>(&body).ok()
 }
 
 pub fn log_dir_path() -> std::path::PathBuf {
